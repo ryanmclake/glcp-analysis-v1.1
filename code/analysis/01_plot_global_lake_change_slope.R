@@ -12,10 +12,10 @@ library(viridis)
 library(rpart)
 library(rpart.plot)
 
-vroom::vroom("/Volumes/SeagateBackupPlusDrive/glcp-analysis-v1.1/output/slopes/hylak_id_slopes.csv", delim = " ") %>%
-  saveRDS(., file = "/Volumes/SeagateBackupPlusDrive/glcp-analysis-v1.1/output/slopes/hylak_id_slopes.rds")
+vroom::vroom("./output/slopes/hylak_id_slopes.csv", delim = " ") %>%
+  saveRDS(., file = "./output/slopes/hylak_id_slopes.rds")
 
-slope_data <- readRDS("/Volumes/SeagateBackupPlusDrive/glcp-analysis-v1.1/output/slopes/hylak_id_slopes.rds") %>%
+slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
   rename(`Lake Area Change` = fit_total_slope) %>%
   filter(lake_type == 1) %>%
   filter(elevation >= 0) %>%
@@ -81,4 +81,4 @@ lake_area_change <-
 
 lake_area_change
 
-ggsave(lake_area_change, path = ".", filename = "/Volumes/SeagateBackupPlusDrive/glcp-analysis-v1.1/output/figures/slope_global_plot.jpg", width = 10, height = 6, device='jpg', dpi=2000)
+ggsave(lake_area_change, path = ".", filename = "./output/figures/slope_global_plot.jpg", width = 10, height = 6, device='jpg', dpi=2000)
