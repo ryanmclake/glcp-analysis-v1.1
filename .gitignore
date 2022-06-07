@@ -2,5 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-./data/
-./output/slopes/
+.DS_Store
+data/shapes
+output/slopes
