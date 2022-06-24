@@ -25,7 +25,7 @@ EcoregionMask_hex <- st_make_valid(EcoregionMask)%>%
 sites <- c(unique(EcoregionMask$BIOME))
 lake_to_biome <- list()
 
-  for(i in 1:length(BIOME)){
+  for(i in 1:length(sites)){
      b <- EcoregionMask %>% filter(BIOME == sites[i])
      b2 <- data %>%
        cbind(b[st_nearest_feature(data, b),]) %>%
@@ -38,7 +38,7 @@ lake_to_biome <- list()
 lake_to_biome = do.call(rbind, lake_to_biome)
 
 biome_change <- lake_to_biome %>%
-  mutate(biome_type = case_when(
+  dplyr::mutate(biome_type = case_when(
     BIOME == 1 ~ "TROPICAL MOIST FOREST",
     BIOME == 2 ~ "TROPICAL DRY FOREST",
     BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
@@ -56,10 +56,28 @@ biome_change <- lake_to_biome %>%
     BIOME == 98 ~ "LAKE",
     BIOME == 99 ~ "ROCK & ICE",
     TRUE ~ NA_character_))%>%
-  filter(lake_type == 1)
+  filter(lake_type == 1)%>%
+  dplyr::mutate(biome_join = case_when(
+    BIOME == 1 ~ "TROPICAL",
+    BIOME == 2 ~ "TROPICAL",
+    BIOME == 3 ~ "TROPICAL",
+    BIOME == 4 ~ "TEMPERATE",
+    BIOME == 5 ~ "TEMPERATE",
+    BIOME == 6 ~ "BOREAL/TUNDRA",
+    BIOME == 7 ~ "TROPICAL",
+    BIOME == 8 ~ "TEMPERATE",
+    BIOME == 9 ~ "TEMPERATE",
+    BIOME == 10 ~ "TEMPERATE",
+    BIOME == 11 ~ "BOREAL/TUNDRA",
+    BIOME == 12 ~ "TEMPERATE",
+    BIOME == 13 ~ "DESERT",
+    BIOME == 14 ~ "TROPICAL",
+    BIOME == 98 ~ "TEMPERATE",
+    BIOME == 99 ~ "BOREAL/TUNDRA",
+    TRUE ~ NA_character_))
 
-biome_change_plot <- ggplot(biome_change, aes(biome_type, fit_total_slope, group = biome_type))+
-  geom_boxplot(fill = "grey70", color = "black", lwd = 0.6, alpha = 0.6, show.legend = FALSE) +
+biome_change_plot <- ggplot(biome_change, aes(biome_join, fit_total_slope, group = biome_join))+
+  geom_boxplot(aes(fill = biome_join), color = "black", lwd = 0.6, alpha = 0.1, show.legend = FALSE) +
   labs(x = "WWF Biomes", y = "Change in total lake area (km2)") +
   stat_summary(
     fun = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y.., color = "Mean"),
@@ -70,6 +88,7 @@ biome_change_plot <- ggplot(biome_change, aes(biome_type, fit_total_slope, group
     width = .75, linetype = "solid"
   ) +
   scale_colour_manual("", values = c(Median = "dodgerblue4", Mean = "darkred")) +
+  scale_fill_manual(values = c("black", "darkorange3", "forestgreen", "magenta1")) +
   theme_minimal() +
   theme(text = element_text(size = 14),legend.position = "top",
         panel.grid.major.y = element_line(c(0, 25, 50, 75, 100), color = "black",size = 0.2),
@@ -114,8 +133,8 @@ for(i in 1:length(biomes)){
 
 biome_level_rf = do.call(rbind, biome_rf) %>%
   group_by(biome_type) %>%
-  slice(1:4)
-
+  slice(1)
+#
 # shp <- read_sf(paste0("/Volumes/SeagateBackupPlusDrive/glcp-analysis-v1.1/data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
 #   mutate(biome_type = case_when(
 #     BIOME == 1 ~ "BROADLEAF FOREST",
@@ -227,7 +246,7 @@ test <- area_hexes %>%
   mutate(dist = st_distance(geometry, geometry.1, by_element = T))
 
 test$dist <- drop_units(test$dist)
-test <- test %>% filter(dist == 0) %>% arrange(hylak_id) %>%filter(BIOME == 6)
+test <- test %>% filter(dist == 0) %>% arrange(hylak_id)
 
 area_hexes_avg <- test %>%
   st_drop_geometry() %>%
@@ -260,16 +279,16 @@ indexes <- unique(area_hexes_avg$index)
 for(i in 1:length(indexes)){
   b <- area_hexes_avg %>% filter(index == indexes[i]) %>%
     dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                   #fit_precip_slope +
-                                                   #fit_snow_slope +
+                                                   fit_precip_slope +
+                                                   fit_snow_slope +
                                                    fit_temp_slope +
                                                    fit_pop_slope +
                                                    fit_humid_slope +
-                                                   #fit_lw_slope +
-                                                   #shore_dev +
-                                                   elevation,
-                                                   #slope_100 +
-                                                   #wshd_area,
+                                                   fit_lw_slope +
+                                                   shore_dev +
+                                                   elevation +
+                                                   slope_100 +
+                                                   wshd_area,
                                                    data = ., na.action=na.roughfix)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
@@ -312,9 +331,9 @@ shp_boreal <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_eco
     BIOME == 99 ~ "ROCK & ICE",
     TRUE ~ NA_character_))%>%
   st_transform("+proj=eqearth +wktext") %>%
-  filter(biome_type == "BOREAL FOREST")
+  filter(biome_type %in% c("BOREAL FOREST","ROCK & ICE","TUNDRA"))
 
-shp_tundra <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
+shp_desert <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
   mutate(biome_type = case_when(
     BIOME == 1 ~ "TROPICAL MOIST FOREST",
     BIOME == 2 ~ "TROPICAL DRY FOREST",
@@ -334,14 +353,63 @@ shp_tundra <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_eco
     BIOME == 99 ~ "ROCK & ICE",
     TRUE ~ NA_character_))%>%
   st_transform("+proj=eqearth +wktext") %>%
-  filter(biome_type == "TUNDRA")
+  filter(biome_type == "DESERT")
 
+
+shp_temperate <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
+  mutate(biome_type = case_when(
+    BIOME == 1 ~ "TROPICAL MOIST FOREST",
+    BIOME == 2 ~ "TROPICAL DRY FOREST",
+    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
+    BIOME == 4 ~ "TEMPERATE CONIFEROUS FOREST",
+    BIOME == 5 ~ "TEMPERATE CONIFER FOREST",
+    BIOME == 6 ~ "BOREAL FOREST",
+    BIOME == 7 ~ "TROPICAL GRASSLAND",
+    BIOME == 8 ~ "TEMPERATE GRASSLAND",
+    BIOME == 9 ~ "FLOODED GRASSLAND",
+    BIOME == 10 ~ "MONTANE GRASSLAND",
+    BIOME == 11 ~ "TUNDRA",
+    BIOME == 12 ~ "MEDITERRANIAN FOREST",
+    BIOME == 13 ~ "DESERT",
+    BIOME == 14 ~ "MANGROVES",
+    BIOME == 98 ~ "LAKE",
+    BIOME == 99 ~ "ROCK & ICE",
+    TRUE ~ NA_character_))%>%
+  st_transform("+proj=eqearth +wktext") %>%
+  filter(biome_type %in% c("TEMPERATE GRASSLAND","TEMPERATE CONIFEROUS FOREST","MEDITERRANIAN FOREST","FLOODED GRASSLAND",
+                           "MONTANE GRASSLAND"))
+
+shp_tropical <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
+  mutate(biome_type = case_when(
+    BIOME == 1 ~ "TROPICAL MOIST FOREST",
+    BIOME == 2 ~ "TROPICAL DRY FOREST",
+    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
+    BIOME == 4 ~ "TEMPERATE CONIFEROUS FOREST",
+    BIOME == 5 ~ "TEMPERATE CONIFER FOREST",
+    BIOME == 6 ~ "BOREAL FOREST",
+    BIOME == 7 ~ "TROPICAL GRASSLAND",
+    BIOME == 8 ~ "TEMPERATE GRASSLAND",
+    BIOME == 9 ~ "FLOODED GRASSLAND",
+    BIOME == 10 ~ "MONTANE GRASSLAND",
+    BIOME == 11 ~ "TUNDRA",
+    BIOME == 12 ~ "MEDITERRANIAN FOREST",
+    BIOME == 13 ~ "DESERT",
+    BIOME == 14 ~ "MANGROVES",
+    BIOME == 98 ~ "LAKE",
+    BIOME == 99 ~ "ROCK & ICE",
+    TRUE ~ NA_character_))%>%
+  st_transform("+proj=eqearth +wktext") %>%
+  filter(biome_type %in% c("TROPICAL MOIST FOREST","TROPICAL DRY FOREST","TROPICAL GRASSLAND","MANGROVES",
+                           "TROPICAL CONIFEROUS FOREST"))
 
 lake_change_predictors <-
   ggplot() +
   geom_sf(data = hex_level_rf,lwd = 0.4,
           aes(fill = predictor, color = strong_NSE))+
-  geom_sf(data = shp_boreal,lwd = 0.3, color = "black", fill = "forestgreen", alpha = 0.15)+
+  geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.2)+
+  geom_sf(data = shp_desert,lwd = 0, color = "darkred", fill = "darkred", alpha = 0.2)+
+  geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.2)+
+  geom_sf(data = shp_tropical,lwd = 0, color = "cyan", fill = "cyan", alpha = 0.2)+
   # geom_sf(data = hex_level_rf,lwd = 0.4,
   #         aes(fill = predictor, color = strong_NSE))+
   # geom_sf(data = shp_boreal,lwd = 0.3, color = "black", fill = "forestgreen", alpha = 0.15)+

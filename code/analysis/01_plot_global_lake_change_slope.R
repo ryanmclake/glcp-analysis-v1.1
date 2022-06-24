@@ -63,12 +63,17 @@ area_hexes_avg <- area_hexes %>%
 
 lake_area_change <-
   ggplot() +
+  geom_sf(data = world, lwd = 0.75, color = "black")+
   geom_sf(data = area_hexes_avg,lwd = 0.3,
     aes(fill = `Lake Area Change`, color = sig_lake_change))+
+  geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.1)+
+  geom_sf(data = shp_desert,lwd = 0, color = "darkorange3", fill = "darkorange3", alpha = 0.1)+
+  geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.1)+
+  geom_sf(data = shp_tropical,lwd = 0, color = "magenta1", fill = "magenta1", alpha = 0.1)+
   scale_fill_gradient2(midpoint=0, low="orange4", mid="white",
-                       high="cyan", space ="Lab",
+                       high="cyan", space ="Lab", na.value="white",
                        name = "**Standardized ΔLSA** <br>(km<sup>2</sup> yr<sup>-1</sup>)") +
-  scale_color_manual(values = c(NA, "blue", NA),name = "**Mann-Kendall test** <br>(p-value < 0.05)") +
+  scale_color_manual(values = c(NA, "blue", NA), na.value = "white", name = "**Mann-Kendall test** <br>(p-value < 0.05)") +
   coord_sf(xlim = c(-15000000, 16000000), ylim = c(-8600000, 8600000), expand = FALSE) +
   guides( fill = guide_colourbar(title.position = "top"))+
   theme_void()+
@@ -81,4 +86,8 @@ lake_area_change <-
 
 lake_area_change
 
-ggsave(lake_area_change, path = ".", filename = "./output/figures/slope_global_plot.jpg", width = 10, height = 6, device='jpg', dpi=2000)
+change <- lake_area_change + biome_change_plot
+
+ggsave(change, path = ".",
+       filename = "./output/figures/slope_global_plot_boxplots.jpg",
+       width = 20, height = 8, device='jpg', dpi=1000)
