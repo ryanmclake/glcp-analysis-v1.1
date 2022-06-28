@@ -12,6 +12,98 @@ library(viridis)
 library(rpart)
 library(rpart.plot)
 
+shp_boreal <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
+  mutate(biome_type = case_when(
+    BIOME == 1 ~ "TROPICAL MOIST FOREST",
+    BIOME == 2 ~ "TROPICAL DRY FOREST",
+    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
+    BIOME == 4 ~ "TEMPERATE BROADLEAF FOREST",
+    BIOME == 5 ~ "TEMPERATE CONIFEROUS FOREST",
+    BIOME == 6 ~ "BOREAL FOREST",
+    BIOME == 7 ~ "TROPICAL GRASSLAND",
+    BIOME == 8 ~ "TEMPERATE GRASSLAND",
+    BIOME == 9 ~ "FLOODED GRASSLAND",
+    BIOME == 10 ~ "MONTANE GRASSLAND",
+    BIOME == 11 ~ "TUNDRA",
+    BIOME == 12 ~ "MEDITERRANIAN FOREST",
+    BIOME == 13 ~ "DESERT",
+    BIOME == 14 ~ "MANGROVES",
+    BIOME == 98 ~ "LAKE",
+    BIOME == 99 ~ "ROCK & ICE",
+    TRUE ~ NA_character_))%>%
+  st_transform("+proj=eqearth +wktext") %>%
+  filter(biome_type %in% c("BOREAL FOREST","ROCK & ICE","TUNDRA"))
+
+shp_desert <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
+  mutate(biome_type = case_when(
+    BIOME == 1 ~ "TROPICAL MOIST FOREST",
+    BIOME == 2 ~ "TROPICAL DRY FOREST",
+    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
+    BIOME == 4 ~ "TEMPERATE BROADLEAF FOREST",
+    BIOME == 5 ~ "TEMPERATE CONIFEROUS FOREST",
+    BIOME == 6 ~ "BOREAL FOREST",
+    BIOME == 7 ~ "TROPICAL GRASSLAND",
+    BIOME == 8 ~ "TEMPERATE GRASSLAND",
+    BIOME == 9 ~ "FLOODED GRASSLAND",
+    BIOME == 10 ~ "MONTANE GRASSLAND",
+    BIOME == 11 ~ "TUNDRA",
+    BIOME == 12 ~ "MEDITERRANIAN FOREST",
+    BIOME == 13 ~ "DESERT",
+    BIOME == 14 ~ "MANGROVES",
+    BIOME == 98 ~ "LAKE",
+    BIOME == 99 ~ "ROCK & ICE",
+    TRUE ~ NA_character_))%>%
+  st_transform("+proj=eqearth +wktext") %>%
+  filter(biome_type == "DESERT")
+
+
+shp_temperate <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
+  mutate(biome_type = case_when(
+    BIOME == 1 ~ "TROPICAL MOIST FOREST",
+    BIOME == 2 ~ "TROPICAL DRY FOREST",
+    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
+    BIOME == 4 ~ "TEMPERATE BROADLEAF FOREST",
+    BIOME == 5 ~ "TEMPERATE CONIFEROUS FOREST",
+    BIOME == 6 ~ "BOREAL FOREST",
+    BIOME == 7 ~ "TROPICAL GRASSLAND",
+    BIOME == 8 ~ "TEMPERATE GRASSLAND",
+    BIOME == 9 ~ "FLOODED GRASSLAND",
+    BIOME == 10 ~ "MONTANE GRASSLAND",
+    BIOME == 11 ~ "TUNDRA",
+    BIOME == 12 ~ "MEDITERRANIAN FOREST",
+    BIOME == 13 ~ "DESERT",
+    BIOME == 14 ~ "MANGROVES",
+    BIOME == 98 ~ "LAKE",
+    BIOME == 99 ~ "ROCK & ICE",
+    TRUE ~ NA_character_))%>%
+  st_transform("+proj=eqearth +wktext") %>%
+  filter(biome_type %in% c("TEMPERATE GRASSLAND","TEMPERATE CONIFEROUS FOREST","MEDITERRANIAN FOREST","FLOODED GRASSLAND",
+                           "MONTANE GRASSLAND","LAKE","TEMPERATE BROADLEAF FOREST"))
+
+shp_tropical <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
+  mutate(biome_type = case_when(
+    BIOME == 1 ~ "TROPICAL MOIST FOREST",
+    BIOME == 2 ~ "TROPICAL DRY FOREST",
+    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
+    BIOME == 4 ~ "TEMPERATE BROADLEAF FOREST",
+    BIOME == 5 ~ "TEMPERATE CONIFEROUS FOREST",
+    BIOME == 6 ~ "BOREAL FOREST",
+    BIOME == 7 ~ "TROPICAL GRASSLAND",
+    BIOME == 8 ~ "TEMPERATE GRASSLAND",
+    BIOME == 9 ~ "FLOODED GRASSLAND",
+    BIOME == 10 ~ "MONTANE GRASSLAND",
+    BIOME == 11 ~ "TUNDRA",
+    BIOME == 12 ~ "MEDITERRANIAN FOREST",
+    BIOME == 13 ~ "DESERT",
+    BIOME == 14 ~ "MANGROVES",
+    BIOME == 98 ~ "LAKE",
+    BIOME == 99 ~ "ROCK & ICE",
+    TRUE ~ NA_character_))%>%
+  st_transform("+proj=eqearth +wktext") %>%
+  filter(biome_type %in% c("TROPICAL MOIST FOREST","TROPICAL DRY FOREST","TROPICAL GRASSLAND","MANGROVES",
+                           "TROPICAL CONIFEROUS FOREST"))
+
+
 vroom::vroom("./output/slopes/hylak_id_slopes.csv", delim = " ") %>%
   saveRDS(., file = "./output/slopes/hylak_id_slopes.rds")
 
@@ -64,16 +156,16 @@ area_hexes_avg <- area_hexes %>%
 lake_area_change <-
   ggplot() +
   geom_sf(data = world, lwd = 0.75, color = "black")+
-  geom_sf(data = area_hexes_avg,lwd = 0.3,
+  geom_sf(data = area_hexes_avg,lwd = 0.4,
     aes(fill = `Lake Area Change`, color = sig_lake_change))+
-  geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.1)+
-  geom_sf(data = shp_desert,lwd = 0, color = "darkorange3", fill = "darkorange3", alpha = 0.1)+
-  geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.1)+
-  geom_sf(data = shp_tropical,lwd = 0, color = "magenta1", fill = "magenta1", alpha = 0.1)+
-  scale_fill_gradient2(midpoint=0, low="orange4", mid="white",
-                       high="cyan", space ="Lab", na.value="white",
+  # geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.1)+
+  # geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.1)+
+  # geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.1)+
+  # geom_sf(data = shp_tropical,lwd = 0, color = "magenta3", fill = "magenta3", alpha = 0.1)+
+  scale_fill_gradient2(midpoint=0, low="orange1", mid="white",
+                       high="cyan", space ="Lab", na.value="black",
                        name = "**Standardized ΔLSA** <br>(km<sup>2</sup> yr<sup>-1</sup>)") +
-  scale_color_manual(values = c(NA, "blue", NA), na.value = "white", name = "**Mann-Kendall test** <br>(p-value < 0.05)") +
+  scale_color_manual(values = c(NA, "blue", NA), na.value = "black", name = "**Mann-Kendall test** <br>(p-value < 0.05)") +
   coord_sf(xlim = c(-15000000, 16000000), ylim = c(-8600000, 8600000), expand = FALSE) +
   guides( fill = guide_colourbar(title.position = "top"))+
   theme_void()+
@@ -84,10 +176,8 @@ lake_area_change <-
         legend.key.height  = unit(.5, 'cm'),
         legend.key.width =  unit(.3, 'cm'))
 
-lake_area_change
+#change <- lake_area_change + (biome_change_plot+plot_spacer())
 
-change <- lake_area_change + biome_change_plot
-
-ggsave(change, path = ".",
-       filename = "./output/figures/slope_global_plot_boxplots.jpg",
-       width = 20, height = 8, device='jpg', dpi=1000)
+ggsave(lake_area_change, path = ".",
+       filename = "./output/figures/slope_global_plot.jpg",
+       width = 14, height = 8, device='jpg', dpi=2000)

@@ -11,7 +11,7 @@ if (!file.exists(file.path(Dir.Shapes, "WWF_ecoregions"))) {
 }
 
 data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
-  filter(sig_lake_change == "YES") %>%
+  #filter(sig_lake_change == "YES") %>%
   filter(lake_type == 1) %>%
   filter(elevation >= 0) %>%
   st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326)
@@ -42,8 +42,8 @@ biome_change <- lake_to_biome %>%
     BIOME == 1 ~ "TROPICAL MOIST FOREST",
     BIOME == 2 ~ "TROPICAL DRY FOREST",
     BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
-    BIOME == 4 ~ "TEMPERATE CONIFEROUS FOREST",
-    BIOME == 5 ~ "TEMPERATE CONIFER FOREST",
+    BIOME == 4 ~ "TEMPERATE BROADLEAF FOREST",
+    BIOME == 5 ~ "TEMPERATE CONIFEROUS FOREST",
     BIOME == 6 ~ "BOREAL FOREST",
     BIOME == 7 ~ "TROPICAL GRASSLAND",
     BIOME == 8 ~ "TEMPERATE GRASSLAND",
@@ -311,105 +311,15 @@ hex_level_rf = do.call(rbind, hex_rf) %>%
   right_join(grid, by = "index")%>%
   st_sf()
 
-shp_boreal <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
-  mutate(biome_type = case_when(
-    BIOME == 1 ~ "TROPICAL MOIST FOREST",
-    BIOME == 2 ~ "TROPICAL DRY FOREST",
-    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
-    BIOME == 4 ~ "TEMPERATE CONIFEROUS FOREST",
-    BIOME == 5 ~ "TEMPERATE CONIFER FOREST",
-    BIOME == 6 ~ "BOREAL FOREST",
-    BIOME == 7 ~ "TROPICAL GRASSLAND",
-    BIOME == 8 ~ "TEMPERATE GRASSLAND",
-    BIOME == 9 ~ "FLOODED GRASSLAND",
-    BIOME == 10 ~ "MONTANE GRASSLAND",
-    BIOME == 11 ~ "TUNDRA",
-    BIOME == 12 ~ "MEDITERRANIAN FOREST",
-    BIOME == 13 ~ "DESERT",
-    BIOME == 14 ~ "MANGROVES",
-    BIOME == 98 ~ "LAKE",
-    BIOME == 99 ~ "ROCK & ICE",
-    TRUE ~ NA_character_))%>%
-  st_transform("+proj=eqearth +wktext") %>%
-  filter(biome_type %in% c("BOREAL FOREST","ROCK & ICE","TUNDRA"))
-
-shp_desert <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
-  mutate(biome_type = case_when(
-    BIOME == 1 ~ "TROPICAL MOIST FOREST",
-    BIOME == 2 ~ "TROPICAL DRY FOREST",
-    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
-    BIOME == 4 ~ "TEMPERATE CONIFEROUS FOREST",
-    BIOME == 5 ~ "TEMPERATE CONIFER FOREST",
-    BIOME == 6 ~ "BOREAL FOREST",
-    BIOME == 7 ~ "TROPICAL GRASSLAND",
-    BIOME == 8 ~ "TEMPERATE GRASSLAND",
-    BIOME == 9 ~ "FLOODED GRASSLAND",
-    BIOME == 10 ~ "MONTANE GRASSLAND",
-    BIOME == 11 ~ "TUNDRA",
-    BIOME == 12 ~ "MEDITERRANIAN FOREST",
-    BIOME == 13 ~ "DESERT",
-    BIOME == 14 ~ "MANGROVES",
-    BIOME == 98 ~ "LAKE",
-    BIOME == 99 ~ "ROCK & ICE",
-    TRUE ~ NA_character_))%>%
-  st_transform("+proj=eqearth +wktext") %>%
-  filter(biome_type == "DESERT")
-
-
-shp_temperate <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
-  mutate(biome_type = case_when(
-    BIOME == 1 ~ "TROPICAL MOIST FOREST",
-    BIOME == 2 ~ "TROPICAL DRY FOREST",
-    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
-    BIOME == 4 ~ "TEMPERATE CONIFEROUS FOREST",
-    BIOME == 5 ~ "TEMPERATE CONIFER FOREST",
-    BIOME == 6 ~ "BOREAL FOREST",
-    BIOME == 7 ~ "TROPICAL GRASSLAND",
-    BIOME == 8 ~ "TEMPERATE GRASSLAND",
-    BIOME == 9 ~ "FLOODED GRASSLAND",
-    BIOME == 10 ~ "MONTANE GRASSLAND",
-    BIOME == 11 ~ "TUNDRA",
-    BIOME == 12 ~ "MEDITERRANIAN FOREST",
-    BIOME == 13 ~ "DESERT",
-    BIOME == 14 ~ "MANGROVES",
-    BIOME == 98 ~ "LAKE",
-    BIOME == 99 ~ "ROCK & ICE",
-    TRUE ~ NA_character_))%>%
-  st_transform("+proj=eqearth +wktext") %>%
-  filter(biome_type %in% c("TEMPERATE GRASSLAND","TEMPERATE CONIFEROUS FOREST","MEDITERRANIAN FOREST","FLOODED GRASSLAND",
-                           "MONTANE GRASSLAND"))
-
-shp_tropical <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
-  mutate(biome_type = case_when(
-    BIOME == 1 ~ "TROPICAL MOIST FOREST",
-    BIOME == 2 ~ "TROPICAL DRY FOREST",
-    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
-    BIOME == 4 ~ "TEMPERATE CONIFEROUS FOREST",
-    BIOME == 5 ~ "TEMPERATE CONIFER FOREST",
-    BIOME == 6 ~ "BOREAL FOREST",
-    BIOME == 7 ~ "TROPICAL GRASSLAND",
-    BIOME == 8 ~ "TEMPERATE GRASSLAND",
-    BIOME == 9 ~ "FLOODED GRASSLAND",
-    BIOME == 10 ~ "MONTANE GRASSLAND",
-    BIOME == 11 ~ "TUNDRA",
-    BIOME == 12 ~ "MEDITERRANIAN FOREST",
-    BIOME == 13 ~ "DESERT",
-    BIOME == 14 ~ "MANGROVES",
-    BIOME == 98 ~ "LAKE",
-    BIOME == 99 ~ "ROCK & ICE",
-    TRUE ~ NA_character_))%>%
-  st_transform("+proj=eqearth +wktext") %>%
-  filter(biome_type %in% c("TROPICAL MOIST FOREST","TROPICAL DRY FOREST","TROPICAL GRASSLAND","MANGROVES",
-                           "TROPICAL CONIFEROUS FOREST"))
 
 lake_change_predictors <-
   ggplot() +
   geom_sf(data = hex_level_rf,lwd = 0.4,
           aes(fill = predictor, color = strong_NSE))+
-  geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.2)+
-  geom_sf(data = shp_desert,lwd = 0, color = "darkred", fill = "darkred", alpha = 0.2)+
-  geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.2)+
-  geom_sf(data = shp_tropical,lwd = 0, color = "cyan", fill = "cyan", alpha = 0.2)+
+  geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.1)+
+  geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.1)+
+  geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.1)+
+  geom_sf(data = shp_tropical,lwd = 0, color = "magenta3", fill = "magenta3", alpha = 0.1)+
   # geom_sf(data = hex_level_rf,lwd = 0.4,
   #         aes(fill = predictor, color = strong_NSE))+
   # geom_sf(data = shp_boreal,lwd = 0.3, color = "black", fill = "forestgreen", alpha = 0.15)+
@@ -419,7 +329,7 @@ lake_change_predictors <-
   # geom_sf(data = hex_level_rf,lwd = 0.4,
   #         aes(fill = predictor, color = strong_NSE))+
   # geom_sf(data = shp_boreal,lwd = 0.3, color = "black", fill = "forestgreen", alpha = 0.15)+
-  scale_fill_viridis(option = "F", na.value = "grey99",
+  scale_fill_viridis(option = "F", na.value = "white",
     direction = -1, discrete = T, name = "**Hybro Basin Predictor** <br> Random Forest")+
   scale_color_manual(values = c("blue", NA, NA),name = "**Predictive Skill** <br> NSE") +
   coord_sf(xlim = c(-15000000, 16000000), ylim = c(-8600000, 8600000), expand = FALSE) +
