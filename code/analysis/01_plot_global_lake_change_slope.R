@@ -117,13 +117,16 @@ slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
 world <-  ne_download(scale = 110, type = 'land', category = 'physical', returnclass = "sf") %>%
   st_transform("+proj=eqearth +wktext")
 
+grid_spacing <- 333000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
+
 grid <- st_make_grid(
   world,
-  n = c(200, 200), # grid granularity
+  cellsize = c(grid_spacing, grid_spacing),
+  #n = c(200, 200), # grid granularity
   crs = st_crs(world),
   what = "polygons",
   flat_topped = T,
-  square = FALSE) %>%
+  square = F) %>%
   st_intersection(world)
 
 grid <- st_sf(index = 1:length(lengths(grid)), grid)
