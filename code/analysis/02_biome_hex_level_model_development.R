@@ -287,11 +287,11 @@ for(i in 1:length(indexes)){
                                                    fit_temp_slope +
                                                    fit_pop_slope +
                                                    fit_humid_slope +
-                                                   fit_lw_slope +
-                                                   shore_dev +
-                                                   elevation +
-                                                   slope_100 +
-                                                   wshd_area,
+                                                   fit_lw_slope,
+                                                   #shore_dev +
+                                                   #elevation +
+                                                   #slope_100 +
+                                                   #wshd_area,
                                                    data = ., na.action=na.roughfix)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
@@ -332,9 +332,9 @@ lake_change_predictors <-
   # geom_sf(data = hex_level_rf,lwd = 0.4,
   #         aes(fill = predictor, color = strong_NSE))+
   # geom_sf(data = shp_boreal,lwd = 0.3, color = "black", fill = "forestgreen", alpha = 0.15)+
-  scale_fill_viridis(option = "F", na.value = "white",
+  scale_fill_viridis(option = "C", na.value = "black",
     direction = -1, discrete = T, name = "**Hybro Basin Predictor** <br> Random Forest")+
-  scale_color_manual(values = c("blue", NA, NA),name = "**Predictive Skill** <br> NSE") +
+  scale_color_manual(values = c("blue", NA, "black"), na.value = "black",name = "**Predictive Skill** <br> NSE") +
   coord_sf(xlim = c(-15000000, 16000000), ylim = c(-8600000, 8600000), expand = FALSE) +
   #guides(fill = guide_colourbar(title.position = "top"))+
   theme_void()+
@@ -345,8 +345,40 @@ lake_change_predictors <-
         legend.key.height  = unit(.5, 'cm'),
         legend.key.width =  unit(.3, 'cm'))
 
-lake_change_predictors
-ggsave(lake_change_predictors, path = ".",
-       filename = "./output/figures/HEX_level_predictors.jpg",
-       width = 10, height = 6, device='jpg', dpi=2000)
+fig2 <- hex_level_rf %>% na.omit(.) %>%
+  ggplot(., aes(x = predictor)) +
+  geom_bar(aes(fill = predictor), color = "black") +
+  scale_fill_viridis(option = "C", na.value = "white",
+                     direction = -1, discrete = T, name = "Predictor Count") +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 15, color = "black"),
+        axis.title.y = element_text(size = 12, color = "black"),
+        line = element_line(color = "black"))+
+  ylab("Global Predictor Count")
+
+vp <- viewport(width = 0.21, height = 0.21, x = 0.7, y = 0.21)
+
+#Just draw the plot twice
+
+png(filename = "./output/figures/HEX_level_predictors.png",width = 1000, height = 700,
+    units = "px", pointsize = 12, bg = "white", res = NA)
+print(lake_change_predictors)
+print(fig2, vp = vp)
+dev.off()
+
+
+
+
+
+
+
+
+#
+# lake_change_predictors
+# ggsave(lake_change_predictors, path = ".",
+#        filename = "./output/figures/HEX_level_predictors.jpg",
+#        width = 10, height = 6, device='jpg', dpi=2000)
 

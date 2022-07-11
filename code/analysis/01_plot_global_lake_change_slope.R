@@ -11,6 +11,7 @@ library(randomForest)
 library(viridis)
 library(rpart)
 library(rpart.plot)
+library(grid)
 
 shp_boreal <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_ecos.shp")) %>%
   mutate(biome_type = case_when(
