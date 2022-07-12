@@ -134,6 +134,13 @@ grid <- st_sf(index = 1:length(lengths(grid)), grid)
 
 area_hexes <- st_join(slope_data, grid, join = st_intersects)
 
+test <- area_hexes %>%
+  cbind(EcoregionMask_hex[st_nearest_feature(area_hexes, EcoregionMask_hex),]) %>%
+  mutate(dist = st_distance(geometry, geometry.1, by_element = T))
+
+test$dist <- drop_units(test$dist)
+test <- test %>% filter(dist == 0) %>% arrange(hylak_id)
+
 area_hexes_avg <- area_hexes %>%
   st_drop_geometry() %>%
   group_by(index) %>%
@@ -185,3 +192,63 @@ lake_area_change <-
 ggsave(lake_area_change, path = ".",
        filename = "./output/figures/slope_global_plot.jpg",
        width = 14, height = 8, device='jpg', dpi=2000)
+
+
+
+
+
+
+
+
+
+
+
+
+
+hex_boreal_slope <- test %>%
+  mutate(biome_type = case_when(
+    BIOME == 1 ~ "TROPICAL MOIST FOREST",
+    BIOME == 2 ~ "TROPICAL DRY FOREST",
+    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
+    BIOME == 4 ~ "TEMPERATE BROADLEAF FOREST",
+    BIOME == 5 ~ "TEMPERATE CONIFEROUS FOREST",
+    BIOME == 6 ~ "BOREAL FOREST",
+    BIOME == 7 ~ "TROPICAL GRASSLAND",
+    BIOME == 8 ~ "TEMPERATE GRASSLAND",
+    BIOME == 9 ~ "FLOODED GRASSLAND",
+    BIOME == 10 ~ "MONTANE GRASSLAND",
+    BIOME == 11 ~ "TUNDRA",
+    BIOME == 12 ~ "MEDITERRANIAN FOREST",
+    BIOME == 13 ~ "DESERT",
+    BIOME == 14 ~ "MANGROVES",
+    BIOME == 98 ~ "LAKE",
+    BIOME == 99 ~ "ROCK & ICE",
+    TRUE ~ NA_character_))%>%
+  st_transform("+proj=eqearth +wktext") %>%
+  filter(biome_type %in% c("BOREAL FOREST","ROCK & ICE","TUNDRA")) %>%
+  st_drop_geometry() %>%
+  group_by(index, hybas_id) %>%
+  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
+            depth_avg = mean(depth_avg, na.rm = TRUE),
+            res_time = mean(res_time, na.rm = TRUE),
+            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
+            elevation = mean(elevation, na.rm = TRUE),
+            slope_100 = mean(slope_100, na.rm = TRUE),
+            Lake.Area.Change = mean(Lake.Area.Change, na.rm = TRUE),
+            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
+            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
+            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
+            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
+            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
+            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
+            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
+            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
+            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE),
+            wshd_area = mean(wshd_area, na.rm = TRUE)) %>%
+  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
+  right_join(grid, by="index") %>%
+  st_sf()
+
+boreal_slope_density <- ggplot(hex_boreal_slope, aes(x=Lake.Area.Change)) +
+  geom_density() + geom_vline(aes(xintercept= 0),
+              color="blue", linetype="dashed", size=1)
