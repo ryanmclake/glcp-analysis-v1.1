@@ -30,8 +30,6 @@ EcoregionMask_hex <- st_make_valid(EcoregionMask)%>%
 slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
   filter(sig_lake_change == "YES") %>%
   filter(lake_type == 1) %>%
-  #filter(elevation >= 0) %>%
-  #filter(fit_total_slope > 0) %>%
   rename(`Lake Area Change` = fit_total_slope) %>%
   st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326) %>%
   st_transform("+proj=eqearth +wktext")
@@ -39,7 +37,7 @@ slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
 world <-  ne_download(scale = 110, type = 'land', category = 'physical', returnclass = "sf") %>%
   st_transform("+proj=eqearth +wktext")
 
-grid_spacing <- 333000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
+grid_spacing <- 555000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
 
 grid <- st_make_grid(
   world,
@@ -141,10 +139,10 @@ lake_change_predictors <-hex_level_rf %>%
   geom_sf(data = world, color = "black", lwd = 1.5)+
   geom_sf(lwd = 0.4,
           aes(fill = predictor_new),color = "white")+
-  geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.25)+
-  geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.25)+
-  geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.25)+
-  geom_sf(data = shp_tropical,lwd = 0, color = "magenta3", fill = "magenta3", alpha = 0.25)+
+  #geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.25)+
+  #geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.25)+
+  #geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.25)+
+  #geom_sf(data = shp_tropical,lwd = 0, color = "magenta3", fill = "magenta3", alpha = 0.25)+
   scale_fill_viridis(option = "C", na.value = "white",
     direction = -1, discrete = T, name = "**Basin-level Predictor** <br> Random Forest Model")+
   #scale_color_manual(values = c("blue", NA, "black"), na.value = "black",name = "**Predictive Skill** <br> NSE") +
@@ -739,10 +737,10 @@ png(filename = "./output/figures/HEX_level_predictors.png",
     pointsize = 12,
     bg = "white")
 print(lake_change_predictors)
-print(temperate_bar, vp = p1)
-print(desert_bar, vp = p2)
-print(tropical_bar, vp = p3)
-print(boreal_bar, vp = p4)
+# print(temperate_bar, vp = p1)
+# print(desert_bar, vp = p2)
+# print(tropical_bar, vp = p3)
+# print(boreal_bar, vp = p4)
 dev.off()
 
 

@@ -108,9 +108,31 @@ shp_tropical <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_e
 vroom::vroom("./output/slopes/hylak_id_slopes.csv", delim = " ") %>%
   saveRDS(., file = "./output/slopes/hylak_id_slopes.rds")
 
+Dir.Base <- getwd()
+Dir.Data <- file.path(Dir.Base, "data")
+Dir.Shapes <- file.path(Dir.Data, "shapes")
+
+if (!file.exists(file.path(Dir.Shapes, "WWF_ecoregions"))) {
+  download.file("http://assets.worldwildlife.org/publications/15/files/original/official_teow.zip",
+                destfile = file.path(Dir.Shapes, "wwf_ecoregions.zip"))
+  unzip(file.path(Dir.Shapes, "wwf_ecoregions.zip"), exdir = file.path(Dir.Shapes, "WWF_ecoregions"))
+}
+
+data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
+  #filter(sig_lake_change == "YES") %>%
+  filter(lake_type == 1) %>%
+  filter(elevation >= 0) %>%
+  st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326)
+
+EcoregionMask <- read_sf(file.path(Dir.Base,"data","shapes", "WWF_ecoregions", "official", "wwf_terr_ecos.shp"))
+EcoregionMask <- st_make_valid(EcoregionMask)
+
+EcoregionMask_hex <- st_make_valid(EcoregionMask)%>%
+  st_transform("+proj=eqearth +wktext")
+
 slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
   rename(`Lake Area Change` = fit_total_slope) %>%
-  filter(lake_type == 1) %>%
+  #filter(lake_type == 1) %>%
   filter(elevation >= 0) %>%
   st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326) %>%
   st_transform("+proj=eqearth +wktext")
@@ -167,7 +189,7 @@ area_hexes_avg <- area_hexes %>%
 lake_area_change <-
   ggplot() +
   geom_sf(data = world, lwd = 0.75, color = "black")+
-  geom_sf(data = area_hexes_avg,lwd = 0.4,
+  geom_sf(data = area_hexes_avg,lwd = 0.6,
     aes(fill = `Lake Area Change`, color = sig_lake_change))+
   # geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.1)+
   # geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.1)+
@@ -192,63 +214,3 @@ lake_area_change <-
 ggsave(lake_area_change, path = ".",
        filename = "./output/figures/slope_global_plot.jpg",
        width = 14, height = 8, device='jpg', dpi=2000)
-
-
-
-
-
-
-
-
-
-
-
-
-
-hex_boreal_slope <- test %>%
-  mutate(biome_type = case_when(
-    BIOME == 1 ~ "TROPICAL MOIST FOREST",
-    BIOME == 2 ~ "TROPICAL DRY FOREST",
-    BIOME == 3 ~ "TROPICAL CONIFEROUS FOREST",
-    BIOME == 4 ~ "TEMPERATE BROADLEAF FOREST",
-    BIOME == 5 ~ "TEMPERATE CONIFEROUS FOREST",
-    BIOME == 6 ~ "BOREAL FOREST",
-    BIOME == 7 ~ "TROPICAL GRASSLAND",
-    BIOME == 8 ~ "TEMPERATE GRASSLAND",
-    BIOME == 9 ~ "FLOODED GRASSLAND",
-    BIOME == 10 ~ "MONTANE GRASSLAND",
-    BIOME == 11 ~ "TUNDRA",
-    BIOME == 12 ~ "MEDITERRANIAN FOREST",
-    BIOME == 13 ~ "DESERT",
-    BIOME == 14 ~ "MANGROVES",
-    BIOME == 98 ~ "LAKE",
-    BIOME == 99 ~ "ROCK & ICE",
-    TRUE ~ NA_character_))%>%
-  st_transform("+proj=eqearth +wktext") %>%
-  filter(biome_type %in% c("BOREAL FOREST","ROCK & ICE","TUNDRA")) %>%
-  st_drop_geometry() %>%
-  group_by(index, hybas_id) %>%
-  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
-            depth_avg = mean(depth_avg, na.rm = TRUE),
-            res_time = mean(res_time, na.rm = TRUE),
-            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
-            elevation = mean(elevation, na.rm = TRUE),
-            slope_100 = mean(slope_100, na.rm = TRUE),
-            Lake.Area.Change = mean(Lake.Area.Change, na.rm = TRUE),
-            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
-            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
-            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
-            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
-            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
-            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
-            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
-            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
-            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE),
-            wshd_area = mean(wshd_area, na.rm = TRUE)) %>%
-  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
-  right_join(grid, by="index") %>%
-  st_sf()
-
-boreal_slope_density <- ggplot(hex_boreal_slope, aes(x=Lake.Area.Change)) +
-  geom_density() + geom_vline(aes(xintercept= 0),
-              color="blue", linetype="dashed", size=1)
