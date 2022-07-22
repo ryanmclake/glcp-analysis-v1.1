@@ -140,7 +140,7 @@ slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
 world <-  ne_download(scale = 110, type = 'land', category = 'physical', returnclass = "sf") %>%
   st_transform("+proj=eqearth +wktext")
 
-grid_spacing <- 333000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
+grid_spacing <- 555000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
 
 grid <- st_make_grid(
   world,
@@ -189,7 +189,7 @@ area_hexes_avg <- area_hexes %>%
 lake_area_change <-
   ggplot() +
   geom_sf(data = world, lwd = 0.75, color = "black")+
-  geom_sf(data = area_hexes_avg,lwd = 0.6,
+  geom_sf(data = area_hexes_avg,lwd = 0.7,
     aes(fill = `Lake Area Change`, color = sig_lake_change))+
   # geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.1)+
   # geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.1)+
@@ -198,7 +198,7 @@ lake_area_change <-
   scale_fill_gradient2(midpoint=0, low="orange1", mid="white",
                        high="cyan", space ="Lab", na.value="black",
                        name = "**Standardized ΔLSA** <br>(km<sup>2</sup> yr<sup>-1</sup>)") +
-  scale_color_manual(values = c(NA, "blue", NA), na.value = "black", name = "**Mann-Kendall test** <br>(p-value < 0.05)") +
+  scale_color_manual(values = c(NA, "red", NA), na.value = "black", name = "**Mann-Kendall test** <br>(p-value < 0.05)") +
   coord_sf(xlim = c(-15000000, 16000000), ylim = c(-8600000, 8600000), expand = FALSE) +
   guides( fill = guide_colourbar(title.position = "top"))+
   theme_void()+

@@ -28,4 +28,26 @@ b <- slope_data %>%
 
   e <- e %>% arrange(-IncNodePurity)
 
-  global_rf <- e
+  global_rf <- e %>%
+    mutate(predictor_new = case_when(
+      predictor == "fit_humid_slope" ~ "Δ Humidity",
+      predictor == "fit_lw_slope" ~ "Δ Longwave",
+      predictor == "fit_pop_slope" ~ "Δ Population",
+      predictor == "fit_precip_slope" ~ "Δ Precipitation",
+      predictor == "fit_snow_slope" ~ "Δ Snowfall",
+      predictor == "fit_temp_slope" ~ "Δ Temperature",
+      predictor == "elevation" ~ "Elevation (m)",
+      predictor == "slope_100" ~ "Near-shore slope",
+      predictor == "wshd_area" ~ "Watershed Area",
+      TRUE ~ NA_character_)) %>%
+    mutate(IncNodePurity = round(IncNodePurity, digits = 0))
+
+
+global_rf_figure <- ggplot(global_rf, aes(y = IncNodePurity, x = NA, group = predictor_new))+
+                    geom_bar(aes(fill = predictor_new),stat = "identity")+
+                    scale_fill_viridis(option = "C", na.value = "white",
+                    direction = -1, discrete = T)+
+                    geom_text(aes(label=IncNodePurity),color="black",size=5,
+                              position=position_stack(vjust=0.5))
+                    labs(title = "Global RF Node Purity")
+

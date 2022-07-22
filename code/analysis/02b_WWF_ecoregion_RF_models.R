@@ -58,19 +58,40 @@ rf_boreal <- test %>%
                                                    elevation +
                                                    slope_100 +
                                                    wshd_area,
-                                                 data = ., na.action=na.roughfix)) %>%
+                                                 data = ., na.action=na.roughfix,
+                                               importance = T)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
 
-e <- as.data.frame(rf_boreal$model[[1]]$importance)
+e <- as.data.frame(rf_boreal$model[[1]]$importance[,1])
 e$predictor <- row.names(e)
 e$NSE = hydroGOF::NSE(rf_boreal$model[[1]]$predicted, rf_boreal$model[[1]]$y)
 
-e <- e %>% arrange(-IncNodePurity)
+e <- e %>% arrange(-`rf_boreal$model[[1]]$importance[, 1]`) %>%
+  rename(incMSE = `rf_boreal$model[[1]]$importance[, 1]`)
 
-rf_boreal_df <- e
+rf_boreal_df <- e %>%
+  mutate(predictor_new = case_when(
+    predictor == "fit_humid_slope" ~ "Δ Humidity",
+    predictor == "fit_lw_slope" ~ "Δ Longwave",
+    predictor == "fit_pop_slope" ~ "Δ Population",
+    predictor == "fit_precip_slope" ~ "Δ Precipitation",
+    predictor == "fit_snow_slope" ~ "Δ Snowfall",
+    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "elevation" ~ "Elevation (m)",
+    predictor == "slope_100" ~ "Near-shore slope",
+    predictor == "wshd_area" ~ "Watershed Area",
+    TRUE ~ NA_character_)) %>%
+  mutate(incMSE = round(incMSE, digits = 3))
 
-
+boreal_rf_figure <- ggplot(rf_boreal_df, aes(y = incMSE, x = NA, group = predictor_new))+
+  geom_bar(aes(fill = predictor_new),stat = "identity")+
+  scale_fill_viridis(option = "C", na.value = "white",
+                     direction = -1, discrete = T)+
+  geom_text(aes(label=incMSE),color="black",size=3,
+            position=position_stack(vjust=0.5))+
+  labs(title = "Boreal/Tundra RF")+
+  theme_minimal()
 
 
 
@@ -114,20 +135,43 @@ rf_desert <- test %>%
   dplyr::collect() %>%
   dplyr::ungroup(.)
 
-e <- as.data.frame(rf_desert$model[[1]]$importance)
+e <- as.data.frame(rf_desert$model[[1]]$importance[,1])
 e$predictor <- row.names(e)
 e$NSE = hydroGOF::NSE(rf_desert$model[[1]]$predicted, rf_desert$model[[1]]$y)
 
-e <- e %>% arrange(-IncNodePurity)
+e <- e %>% arrange(-`rf_desert$model[[1]]$importance[, 1]`) %>%
+  rename(incMSE = `rf_desert$model[[1]]$importance[, 1]`)
 
-rf_desert_df <- e
+rf_desert_df <- e %>%
+  mutate(predictor_new = case_when(
+    predictor == "fit_humid_slope" ~ "Δ Humidity",
+    predictor == "fit_lw_slope" ~ "Δ Longwave",
+    predictor == "fit_pop_slope" ~ "Δ Population",
+    predictor == "fit_precip_slope" ~ "Δ Precipitation",
+    predictor == "fit_snow_slope" ~ "Δ Snowfall",
+    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "elevation" ~ "Elevation (m)",
+    predictor == "slope_100" ~ "Near-shore slope",
+    predictor == "wshd_area" ~ "Watershed Area",
+    TRUE ~ NA_character_)) %>%
+  mutate(incMSE = round(incMSE, digits = 3))
+
+desert_rf_figure <- ggplot(rf_desert_df, aes(y = incMSE, x = NA, group = predictor_new))+
+  geom_bar(aes(fill = predictor_new),stat = "identity")+
+  scale_fill_viridis(option = "C", na.value = "white",
+                     direction = -1, discrete = T)+
+  geom_text(aes(label=incMSE),color="black",size=3,
+            position=position_stack(vjust=0.5))+
+  labs(title = "desert RF")+
+  theme_minimal()
 
 
 
 
 
 
-rf_temperate <- test %>%
+
+rf_tropical <- test %>%
   mutate(biome_type = case_when(
     BIOME == 1 ~ "TROPICAL MOIST FOREST",
     BIOME == 2 ~ "TROPICAL DRY FOREST",
@@ -165,15 +209,35 @@ rf_temperate <- test %>%
   dplyr::collect() %>%
   dplyr::ungroup(.)
 
-e <- as.data.frame(rf_temperate$model[[1]]$importance)
+e <- as.data.frame(rf_temperate$model[[1]]$importance[,1])
 e$predictor <- row.names(e)
 e$NSE = hydroGOF::NSE(rf_temperate$model[[1]]$predicted, rf_temperate$model[[1]]$y)
 
-e <- e %>% arrange(-IncNodePurity)
+e <- e %>% arrange(-`rf_temperate$model[[1]]$importance[, 1]`) %>%
+  rename(incMSE = `rf_temperate$model[[1]]$importance[, 1]`)
 
-rf_temperate_df <- e
+rf_temperate_df <- e %>%
+  mutate(predictor_new = case_when(
+    predictor == "fit_humid_slope" ~ "Δ Humidity",
+    predictor == "fit_lw_slope" ~ "Δ Longwave",
+    predictor == "fit_pop_slope" ~ "Δ Population",
+    predictor == "fit_precip_slope" ~ "Δ Precipitation",
+    predictor == "fit_snow_slope" ~ "Δ Snowfall",
+    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "elevation" ~ "Elevation (m)",
+    predictor == "slope_100" ~ "Near-shore slope",
+    predictor == "wshd_area" ~ "Watershed Area",
+    TRUE ~ NA_character_)) %>%
+  mutate(incMSE = round(incMSE, digits = 3))
 
-
+temperate_rf_figure <- ggplot(rf_temperate_df, aes(y = incMSE, x = NA, group = predictor_new))+
+  geom_bar(aes(fill = predictor_new),stat = "identity")+
+  scale_fill_viridis(option = "C", na.value = "white",
+                     direction = -1, discrete = T)+
+  geom_text(aes(label=incMSE),color="black",size=3,
+            position=position_stack(vjust=0.5))+
+  labs(title = "temperate RF")+
+  theme_minimal()
 
 
 
@@ -216,10 +280,32 @@ rf_tropical <- test %>%
   dplyr::collect() %>%
   dplyr::ungroup(.)
 
-e <- as.data.frame(rf_tropical$model[[1]]$importance)
+e <- as.data.frame(rf_tropical$model[[1]]$importance[,1])
 e$predictor <- row.names(e)
 e$NSE = hydroGOF::NSE(rf_tropical$model[[1]]$predicted, rf_tropical$model[[1]]$y)
 
-e <- e %>% arrange(-IncNodePurity)
+e <- e %>% arrange(-`rf_tropical$model[[1]]$importance[, 1]`) %>%
+  rename(incMSE = `rf_tropical$model[[1]]$importance[, 1]`)
 
-rf_tropical_df <- e
+rf_tropical_df <- e %>%
+  mutate(predictor_new = case_when(
+    predictor == "fit_humid_slope" ~ "Δ Humidity",
+    predictor == "fit_lw_slope" ~ "Δ Longwave",
+    predictor == "fit_pop_slope" ~ "Δ Population",
+    predictor == "fit_precip_slope" ~ "Δ Precipitation",
+    predictor == "fit_snow_slope" ~ "Δ Snowfall",
+    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "elevation" ~ "Elevation (m)",
+    predictor == "slope_100" ~ "Near-shore slope",
+    predictor == "wshd_area" ~ "Watershed Area",
+    TRUE ~ NA_character_)) %>%
+  mutate(incMSE = round(incMSE, digits = 3))
+
+tropical_rf_figure <- ggplot(rf_tropical_df, aes(y = incMSE, x = NA, group = predictor_new))+
+  geom_bar(aes(fill = predictor_new),stat = "identity")+
+  scale_fill_viridis(option = "C", na.value = "white",
+                     direction = -1, discrete = T)+
+  geom_text(aes(label=incMSE),color="black",size=3,
+            position=position_stack(vjust=0.5))+
+  labs(title = "tropical RF")+
+  theme_minimal()
