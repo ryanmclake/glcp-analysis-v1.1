@@ -7,7 +7,7 @@ library(parallel)
 library(dplyr)
 library(Kendall)
 
-lakes <- vroom::vroom("/Volumes/SeagateBackupPlusDrive/glcp-analysis-v1.1/code/kamiak/glcp_hydro_and_climate_pop_subset_all_vars.csv", delim = ",") %>%
+lakes <- vroom::vroom("./code/kamiak/glcp_hydro_and_climate_pop_subset_all_vars.csv", delim = ",") %>%
   select(hylak_id) %>%
   group_by(hylak_id)%>%
   slice(1) %>%
@@ -82,10 +82,10 @@ analysis_function <- function(x){
                   -sw,
                   -lw) %>%
     dplyr::mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO")) %>%
-    write.table(., file = paste0("/Volumes/SeagateBackupPlusDrive/glcp-analysis-v1.1/code/kamiak/hylak_id_slopes.csv"),
+    write.table(., file = paste0("./output/hylak_id_slopes2.csv"),
                 append = T,
                 row.names = F,
-                col.names = !file.exists("/Volumes/SeagateBackupPlusDrive/glcp-analysis-v1.1/code/kamiak/hylak_id_slopes.csv"))
+                col.names = !file.exists("./output/hylak_id_slopes2.csv"))
 
   return(unique(dat$hylak_id))
 
