@@ -105,8 +105,30 @@ shp_tropical <- read_sf(paste0("./data/shapes/WWF_ecoregions/official/wwf_terr_e
                            "TROPICAL CONIFEROUS FOREST"))
 
 
-vroom::vroom("./output/slopes/hylak_id_slopes.csv", delim = " ") %>%
-  saveRDS(., file = "./output/slopes/hylak_id_slopes.rds")
+slope_data <- vroom::vroom("./output/slopes/hylak_id_slopes2.csv", delim = " ", col_names = F) %>%
+  rename(hylak_id = X1,
+         hybas_id = X2,
+         centr_lon = X3,
+         centr_lat = X4,
+         lake_type = X5,
+         shore_dev = X6,
+         depth_avg = X7,
+         res_time = X8,
+         elevation = X9,
+         slope_100 = X10,
+         wshd_area = X11,
+         area_slope = X12,
+         precip_slope = X13,
+         snow_slope = X14,
+         temp_slope = X15,
+         population_slope = X16,
+         humidity_slope = X17,
+         cloud_slope = X18,
+         mk_p_val = X19,
+         sig_lake_change = X20) %>%
+  filter(lake_type == 1) %>%
+  st_as_sf(coords = c("centr_lon", "centr_lat"), crs = 4326)%>%
+  st_transform("+proj=eqearth +wktext")
 
 Dir.Base <- getwd()
 Dir.Data <- file.path(Dir.Base, "data")
@@ -118,23 +140,11 @@ if (!file.exists(file.path(Dir.Shapes, "WWF_ecoregions"))) {
   unzip(file.path(Dir.Shapes, "wwf_ecoregions.zip"), exdir = file.path(Dir.Shapes, "WWF_ecoregions"))
 }
 
-data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
-  #filter(sig_lake_change == "YES") %>%
-  filter(lake_type == 1) %>%
-  filter(elevation >= 0) %>%
-  st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326)
 
 EcoregionMask <- read_sf(file.path(Dir.Base,"data","shapes", "WWF_ecoregions", "official", "wwf_terr_ecos.shp"))
 EcoregionMask <- st_make_valid(EcoregionMask)
 
 EcoregionMask_hex <- st_make_valid(EcoregionMask)%>%
-  st_transform("+proj=eqearth +wktext")
-
-slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
-  rename(`Lake Area Change` = fit_total_slope) %>%
-  #filter(lake_type == 1) %>%
-  filter(elevation >= 0) %>%
-  st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326) %>%
   st_transform("+proj=eqearth +wktext")
 
 world <-  ne_download(scale = 110, type = 'land', category = 'physical', returnclass = "sf") %>%
@@ -166,23 +176,20 @@ test <- test %>% filter(dist == 0) %>% arrange(hylak_id)
 area_hexes_avg <- area_hexes %>%
   st_drop_geometry() %>%
   group_by(index) %>%
-  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
-            depth_avg = mean(depth_avg, na.rm = TRUE),
-            res_time = mean(res_time, na.rm = TRUE),
-            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
-            elevation = mean(elevation, na.rm = TRUE),
-            slope_100 = mean(slope_100, na.rm = TRUE),
-            `Lake Area Change` = mean(`Lake Area Change`, na.rm = TRUE),
-            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
-            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
-            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
-            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
-            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
-            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
-            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
-            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
-            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE)) %>%
-  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
+  summarise(shore_dev = median(shore_dev, na.rm = TRUE),
+            depth_avg = median(depth_avg, na.rm = TRUE),
+            res_time = median(res_time, na.rm = TRUE),
+            mk_p_val = median(mk_p_val, na.rm = TRUE),
+            elevation = median(elevation, na.rm = TRUE),
+            slope_100 = median(slope_100, na.rm = TRUE),
+            area_slope = median(area_slope, na.rm = TRUE),
+            precip_slope = median(precip_slope, na.rm = TRUE),
+            snow_slope = median(snow_slope, na.rm = TRUE),
+            temp_slope = median(temp_slope, na.rm = TRUE),
+            population_slope = median(population_slope, na.rm = TRUE),
+            humidity_slope = median(humidity_slope, na.rm = TRUE),
+            cloud_slope = median(cloud_slope, na.rm = TRUE)) %>%
+  mutate(sig_lake_change = ifelse(mk_p_val<=0.05, "YES","NO"))%>%
   right_join(grid, by="index") %>%
   st_sf()
 
@@ -190,7 +197,7 @@ lake_area_change <-
   ggplot() +
   geom_sf(data = world, lwd = 0.75, color = "black")+
   geom_sf(data = area_hexes_avg,lwd = 0.7,
-    aes(fill = `Lake Area Change`, color = sig_lake_change))+
+    aes(fill = area_slope, color = sig_lake_change))+
   # geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.1)+
   # geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.1)+
   # geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.1)+
