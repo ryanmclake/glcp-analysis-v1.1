@@ -1,4 +1,20 @@
+slope_data_analysis_high <- slope_data %>%
+  mutate(sig_lake_change = ifelse(lsa_pval<=0.05, "YES","NO"))%>%
+  filter(sig_lake_change == "YES")
+%>%
+  mutate(q75 = quantile(lsa_tau, 0.75000000)) %>%
+  filter(lsa_tau >= q75)%>%
+  select(-q75)
 
+slope_data_analysis_low <- slope_data %>%
+  mutate(sig_lake_change = ifelse(lsa_pval<=0.05, "YES","NO"))%>%
+  filter(sig_lake_change == "YES") %>%
+  mutate(q25 = quantile(lsa_tau, 0.25000000)) %>%
+  filter(lsa_tau <= q25) %>%
+  select(-q25)
+
+slope_data_analysis_LR <- rbind(slope_data_analysis_high,slope_data_analysis_low) %>%
+  mutate(direction = ifelse(lsa_tau < 0, 0, 1))
 
 Dir.Base <- getwd()
 Dir.Data <- file.path(Dir.Base, "data")
@@ -10,11 +26,6 @@ if (!file.exists(file.path(Dir.Shapes, "WWF_ecoregions"))) {
   unzip(file.path(Dir.Shapes, "wwf_ecoregions.zip"), exdir = file.path(Dir.Shapes, "WWF_ecoregions"))
 }
 
-data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
-  filter(sig_lake_change == "YES") %>%
-  filter(lake_type == 1) %>%
-  #filter(elevation >= 0) %>%
-  st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326)
 
 EcoregionMask <- read_sf(file.path(Dir.Base,"data","shapes", "WWF_ecoregions", "official", "wwf_terr_ecos.shp"))
 EcoregionMask <- st_make_valid(EcoregionMask)
@@ -27,17 +38,10 @@ EcoregionMask_hex <- st_make_valid(EcoregionMask)%>%
 ### HEX LEVEL RANDOM FOREST MODELS ###
 ######################################
 
-slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
-  filter(sig_lake_change == "YES") %>%
-  filter(lake_type == 1) %>%
-  rename(`Lake Area Change` = fit_total_slope) %>%
-  st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326) %>%
-  st_transform("+proj=eqearth +wktext")
-
 world <-  ne_download(scale = 110, type = 'land', category = 'physical', returnclass = "sf") %>%
   st_transform("+proj=eqearth +wktext")
 
-grid_spacing <- 555000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
+grid_spacing <- 1010000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
 
 grid <- st_make_grid(
   world,
@@ -62,24 +66,18 @@ test <- test %>% filter(dist == 0) %>% arrange(hylak_id)
 area_hexes_avg <- test %>%
   st_drop_geometry() %>%
   group_by(index, hybas_id) %>%
-  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
-            depth_avg = mean(depth_avg, na.rm = TRUE),
-            res_time = mean(res_time, na.rm = TRUE),
-            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
-            elevation = mean(elevation, na.rm = TRUE),
-            slope_100 = mean(slope_100, na.rm = TRUE),
-            Lake.Area.Change = mean(Lake.Area.Change, na.rm = TRUE),
-            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
-            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
-            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
-            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
-            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
-            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
-            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
-            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
-            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE),
-            wshd_area = mean(wshd_area, na.rm = TRUE)) %>%
-  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
+  summarise(depth_avg = median(depth_avg, na.rm = TRUE),
+            elevation = median(elevation, na.rm = TRUE),
+            lsa_pval = median(lsa_pval, na.rm = TRUE),
+            lsa_tau = median(lsa_tau, na.rm = TRUE),
+            precip_pval = median(precip_pval, na.rm = TRUE),
+            precip_tau = median(precip_tau, na.rm = TRUE),
+            temp_pval = median(temp_pval, na.rm = TRUE),
+            temp_tau = median(temp_tau, na.rm = TRUE),
+            pop_pval = median(pop_pval, na.rm = TRUE),
+            pop_tau = median(pop_tau, na.rm = TRUE),
+            snow_pval = median(snow_pval, na.rm = TRUE),
+            snow_tau = median(snow_tau, na.rm = TRUE)) %>%
   right_join(grid, by="index") %>%
   st_sf() %>%
   na.omit(.)
@@ -89,17 +87,11 @@ indexes <- unique(area_hexes_avg$index)
 
 for(i in 1:length(indexes)){
   b <- area_hexes_avg %>% filter(index == indexes[i]) %>%
-    dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                   fit_precip_slope +
-                                                   fit_snow_slope +
-                                                   fit_temp_slope +
-                                                   fit_pop_slope +
-                                                   fit_humid_slope +
-                                                   fit_lw_slope+
-                                                   #shore_dev +
-                                                   elevation +
-                                                   slope_100 +
-                                                   wshd_area,
+    dplyr::do(model = randomForest::randomForest(formula = lsa_tau ~
+                                                   precip_tau +
+                                                   temp_tau +
+                                                   pop_tau +
+                                                   snow_tau,
                                                    data = ., na.action=na.roughfix)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
@@ -118,31 +110,26 @@ for(i in 1:length(indexes)){
 hex_level_rf = do.call(rbind, hex_rf) %>%
   group_by(index) %>%
   slice(1) %>%
-  mutate(strong_NSE = ifelse(NSE>=0.25, "STRONG","WEAK"))%>%
+  mutate(strong_NSE = ifelse(NSE>=0, "STRONG","WEAK"))%>%
   right_join(grid, by = "index")%>%
   st_sf()
 
-
-lake_change_predictors <-hex_level_rf %>%
+lake_change_predictors <- hex_level_rf %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
-    predictor == "elevation" ~ "Elevation (m)",
-    predictor == "slope_100" ~ "Near-shore slope",
-    predictor == "wshd_area" ~ "Watershed Area",
-    TRUE ~ NA_character_))%>%
-  ggplot(.) +
-  geom_sf(data = world, color = "black", lwd = 1.5)+
-  geom_sf(lwd = 0.4,
+    predictor == "pop_tau" ~ "Δ Population",
+    predictor == "precip_tau" ~ "Δ Precipitation",
+    predictor == "snow_tau" ~ "Δ Snowfall",
+    predictor == "temp_tau" ~ "Δ Temperature",
+    TRUE ~ NA_character_))
+
+lake_change_predictors_plot <- ggplot(lake_change_predictors) +
+  geom_sf(data = world, color = "black", lwd = 0.5)+
+  geom_sf(lwd = 0.05,
           aes(fill = predictor_new),color = "white")+
-  #geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.25)+
-  #geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.25)+
-  #geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.25)+
-  #geom_sf(data = shp_tropical,lwd = 0, color = "magenta3", fill = "magenta3", alpha = 0.25)+
+  # geom_sf(data = shp_boreal,lwd = 0, color = "black", fill = "black", alpha = 0.25)+
+  # geom_sf(data = shp_desert,lwd = 0, color = "firebrick4", fill = "firebrick4", alpha = 0.25)+
+  # geom_sf(data = shp_temperate,lwd = 0, color = "forestgreen", fill = "forestgreen", alpha = 0.25)+
+  # geom_sf(data = shp_tropical,lwd = 0, color = "magenta3", fill = "magenta3", alpha = 0.25)+
   scale_fill_viridis(option = "C", na.value = "white",
     direction = -1, discrete = T, name = "**Basin-level Predictor** <br> Random Forest Model")+
   #scale_color_manual(values = c("blue", NA, "black"), na.value = "black",name = "**Predictive Skill** <br> NSE") +
@@ -155,6 +142,49 @@ lake_change_predictors <-hex_level_rf %>%
         legend.text = element_text(size=9),
         legend.key.height  = unit(.5, 'cm'),
         legend.key.width =  unit(.3, 'cm'))
+
+
+lake_change_predictors_bar <- ggplot(lake_change_predictors, aes(x = predictor_new)) +
+  geom_bar(aes(fill = predictor_new), color = "black") +
+  scale_fill_viridis(option = "C", na.value = "white",
+                     direction = -1, discrete = T, name = "Predictor Count") +
+  labs(title = "Global Predictors")+
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(size = 5, color = "black", angle = 45, vjust = 1, hjust = 1),
+        axis.text.y = element_text(size = 5, color = "black"),
+        axis.title.y = element_text(size = 5, color = "black"),
+        plot.title = element_text(size=5),
+        line = element_line(color = "black"))+
+  ylab("Hex Count")
+
+p1 <- viewport(width = 0.12, height = 0.17, x = 0.36, y = 0.65)
+p2 <- viewport(width = 0.12, height = 0.17, x = 0.72, y = 0.42)
+p3 <- viewport(width = 0.12, height = 0.17, x = 0.45, y = 0.4)
+p4 <- viewport(width = 0.12, height = 0.17, x = 0.11, y = 0.53)
+
+#Just draw the plot twice
+
+png(filename = "./output/figures/HEX_level_predictors_STRONGNSE.png",
+    width     = 10.41,
+    height    = 7.29,
+    units     = "in",
+    res       = 1000,
+    pointsize = 12,
+    bg = "white")
+print(lake_change_predictors_plot)
+print(lake_change_predictors_bar, vp = p1)
+dev.off()
+
+
+
+
+
+
+
+
+
 
 
 
@@ -180,25 +210,25 @@ hex_boreal <- test %>%
   st_transform("+proj=eqearth +wktext") %>%
   filter(biome_type %in% c("BOREAL FOREST","ROCK & ICE","TUNDRA")) %>%
   st_drop_geometry() %>%
+  mutate(q95 = quantile(area_slope, 0.999), row = row_number()) %>%
+  filter(area_slope <= q95) %>%
+  mutate(q5 = quantile(area_slope, 0.001), row = row_number()) %>%
+  filter(area_slope >= q5) %>%
   group_by(index, hybas_id) %>%
-  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
-            depth_avg = mean(depth_avg, na.rm = TRUE),
-            res_time = mean(res_time, na.rm = TRUE),
-            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
-            elevation = mean(elevation, na.rm = TRUE),
-            slope_100 = mean(slope_100, na.rm = TRUE),
-            Lake.Area.Change = mean(Lake.Area.Change, na.rm = TRUE),
-            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
-            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
-            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
-            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
-            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
-            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
-            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
-            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
-            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE),
-            wshd_area = mean(wshd_area, na.rm = TRUE)) %>%
-  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
+  summarise(shore_dev = median(shore_dev, na.rm = TRUE),
+            depth_avg = median(depth_avg, na.rm = TRUE),
+            res_time = median(res_time, na.rm = TRUE),
+            p_val = median(sig_test, na.rm = TRUE),
+            elevation = median(elevation, na.rm = TRUE),
+            slope_100 = median(slope_100, na.rm = TRUE),
+            area_slope = median(area_slope, na.rm = TRUE),
+            precip_slope = median(precip_slope, na.rm = TRUE),
+            snow_slope = median(snow_slope, na.rm = TRUE),
+            temp_slope = median(temp_slope, na.rm = TRUE),
+            population_slope = median(population_slope, na.rm = TRUE),
+            humidity_slope = median(humidity_slope, na.rm = TRUE),
+            cloud_slope = median(cloud_slope, na.rm = TRUE)) %>%
+  mutate(sig_lake_change = ifelse(p_val<=0.05, "YES","NO"))%>%
   right_join(grid, by="index") %>%
   st_sf() %>%
   na.omit(.)
@@ -208,17 +238,12 @@ indexes <- unique(hex_boreal$index)
 
 for(i in 1:length(indexes)){
   b <- hex_boreal %>% filter(index == indexes[i]) %>%
-    dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                   fit_precip_slope +
-                                                   fit_snow_slope +
-                                                   fit_temp_slope +
-                                                   fit_pop_slope +
-                                                   fit_humid_slope +
-                                                   fit_lw_slope +
-                                                   #shore_dev +
-                                                   elevation +
-                                                   slope_100 +
-                                                   wshd_area,
+    dplyr::do(model = randomForest::randomForest(formula = area_slope ~
+                                                   humidity_slope +
+                                                   population_slope +
+                                                   temp_slope +
+                                                   snow_slope +
+                                                   precip_slope,
                                                  data = ., na.action=na.roughfix)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
@@ -237,21 +262,23 @@ for(i in 1:length(indexes)){
 hex_level_rf_boreal = do.call(rbind, hex_rf_boreal) %>%
   group_by(index) %>%
   slice(1) %>%
-  mutate(strong_NSE = ifelse(NSE>=0.25, "STRONG","WEAK"))%>%
+  mutate(strong_NSE = ifelse(NSE>=0, "STRONG","WEAK"))%>%
   right_join(grid, by = "index")%>%
+  filter(strong_NSE == "STRONG")%>%
   st_sf()
 
 boreal_change_predictors <-hex_level_rf_boreal %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
     predictor == "elevation" ~ "Elevation (m)",
     predictor == "slope_100" ~ "Near-shore slope",
     predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
     TRUE ~ NA_character_))%>%
   ggplot(.) +
   geom_sf(data = world, color = "black", lwd = 2)+
@@ -273,15 +300,16 @@ boreal_change_predictors <-hex_level_rf_boreal %>%
 
 boreal_bar <- hex_level_rf_boreal %>% select(predictor) %>% na.omit(.) %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
     predictor == "elevation" ~ "Elevation (m)",
     predictor == "slope_100" ~ "Near-shore slope",
     predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
     TRUE ~ NA_character_))%>%
   ggplot(., aes(x = predictor_new)) +
   geom_bar(aes(fill = predictor_new), color = "black") +
@@ -323,25 +351,25 @@ hex_desert <- test %>%
   st_transform("+proj=eqearth +wktext") %>%
   filter(biome_type == "DESERT")%>%
   st_drop_geometry() %>%
+  mutate(q95 = quantile(area_slope, 0.999), row = row_number()) %>%
+  filter(area_slope <= q95) %>%
+  mutate(q5 = quantile(area_slope, 0.001), row = row_number()) %>%
+  filter(area_slope >= q5) %>%
   group_by(index, hybas_id) %>%
-  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
-            depth_avg = mean(depth_avg, na.rm = TRUE),
-            res_time = mean(res_time, na.rm = TRUE),
-            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
-            elevation = mean(elevation, na.rm = TRUE),
-            slope_100 = mean(slope_100, na.rm = TRUE),
-            Lake.Area.Change = mean(Lake.Area.Change, na.rm = TRUE),
-            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
-            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
-            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
-            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
-            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
-            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
-            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
-            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
-            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE),
-            wshd_area = mean(wshd_area, na.rm = TRUE)) %>%
-  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
+  summarise(shore_dev = median(shore_dev, na.rm = TRUE),
+            depth_avg = median(depth_avg, na.rm = TRUE),
+            res_time = median(res_time, na.rm = TRUE),
+            p_val = median(sig_test, na.rm = TRUE),
+            elevation = median(elevation, na.rm = TRUE),
+            slope_100 = median(slope_100, na.rm = TRUE),
+            area_slope = median(area_slope, na.rm = TRUE),
+            precip_slope = median(precip_slope, na.rm = TRUE),
+            snow_slope = median(snow_slope, na.rm = TRUE),
+            temp_slope = median(temp_slope, na.rm = TRUE),
+            population_slope = median(population_slope, na.rm = TRUE),
+            humidity_slope = median(humidity_slope, na.rm = TRUE),
+            cloud_slope = median(cloud_slope, na.rm = TRUE)) %>%
+  mutate(sig_lake_change = ifelse(p_val<=0.05, "YES","NO"))%>%
   right_join(grid, by="index") %>%
   st_sf() %>%
   na.omit(.)
@@ -351,17 +379,12 @@ indexes <- unique(hex_desert$index)
 
 for(i in 1:length(indexes)){
   b <- hex_desert %>% filter(index == indexes[i]) %>%
-    dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                   fit_precip_slope +
-                                                   fit_snow_slope +
-                                                   fit_temp_slope +
-                                                   fit_pop_slope +
-                                                   fit_humid_slope +
-                                                   fit_lw_slope +
-                                                   #shore_dev +
-                                                   elevation +
-                                                   slope_100 +
-                                                   wshd_area,
+    dplyr::do(model = randomForest::randomForest(formula = area_slope ~
+                                                   humidity_slope +
+                                                   population_slope +
+                                                   temp_slope +
+                                                   snow_slope +
+                                                   precip_slope,
                                                  data = ., na.action=na.roughfix)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
@@ -380,21 +403,23 @@ for(i in 1:length(indexes)){
 hex_level_rf_desert = do.call(rbind, hex_rf_desert) %>%
   group_by(index) %>%
   slice(1) %>%
-  mutate(strong_NSE = ifelse(NSE>=0.25, "STRONG","WEAK"))%>%
+  mutate(strong_NSE = ifelse(NSE>=0, "STRONG","WEAK"))%>%
   right_join(grid, by = "index")%>%
+  filter(strong_NSE == "STRONG")%>%
   st_sf()
 
 desert_change_predictors <-hex_level_rf_desert %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
     predictor == "elevation" ~ "Elevation (m)",
     predictor == "slope_100" ~ "Near-shore slope",
     predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
     TRUE ~ NA_character_))%>%
   ggplot(.) +
   geom_sf(lwd = 0.4,
@@ -414,15 +439,16 @@ desert_change_predictors <-hex_level_rf_desert %>%
 
 desert_bar <- hex_level_rf_desert %>% na.omit(.) %>% select(predictor) %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
     predictor == "elevation" ~ "Elevation (m)",
     predictor == "slope_100" ~ "Near-shore slope",
     predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
     TRUE ~ NA_character_))%>%
   ggplot(., aes(x = predictor_new)) +
   geom_bar(aes(fill = predictor_new), color = "black") +
@@ -463,25 +489,25 @@ hex_temperate <- test %>%
   filter(biome_type %in% c("TEMPERATE GRASSLAND","TEMPERATE CONIFEROUS FOREST","MEDITERRANIAN FOREST","FLOODED GRASSLAND",
                            "MONTANE GRASSLAND","LAKE","TEMPERATE BROADLEAF FOREST"))%>%
   st_drop_geometry() %>%
+  mutate(q95 = quantile(area_slope, 0.999), row = row_number()) %>%
+  filter(area_slope <= q95) %>%
+  mutate(q5 = quantile(area_slope, 0.001), row = row_number()) %>%
+  filter(area_slope >= q5) %>%
   group_by(index, hybas_id) %>%
-  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
-            depth_avg = mean(depth_avg, na.rm = TRUE),
-            res_time = mean(res_time, na.rm = TRUE),
-            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
-            elevation = mean(elevation, na.rm = TRUE),
-            slope_100 = mean(slope_100, na.rm = TRUE),
-            Lake.Area.Change = mean(Lake.Area.Change, na.rm = TRUE),
-            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
-            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
-            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
-            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
-            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
-            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
-            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
-            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
-            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE),
-            wshd_area = mean(wshd_area, na.rm = TRUE)) %>%
-  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
+  summarise(shore_dev = median(shore_dev, na.rm = TRUE),
+            depth_avg = median(depth_avg, na.rm = TRUE),
+            res_time = median(res_time, na.rm = TRUE),
+            p_val = median(sig_test, na.rm = TRUE),
+            elevation = median(elevation, na.rm = TRUE),
+            slope_100 = median(slope_100, na.rm = TRUE),
+            area_slope = median(area_slope, na.rm = TRUE),
+            precip_slope = median(precip_slope, na.rm = TRUE),
+            snow_slope = median(snow_slope, na.rm = TRUE),
+            temp_slope = median(temp_slope, na.rm = TRUE),
+            population_slope = median(population_slope, na.rm = TRUE),
+            humidity_slope = median(humidity_slope, na.rm = TRUE),
+            cloud_slope = median(cloud_slope, na.rm = TRUE)) %>%
+  mutate(sig_lake_change = ifelse(p_val<=0.05, "YES","NO"))%>%
   right_join(grid, by="index") %>%
   st_sf() %>%
   na.omit(.)
@@ -491,17 +517,12 @@ indexes <- unique(hex_temperate$index)
 
 for(i in 1:length(indexes)){
   b <- hex_temperate %>% filter(index == indexes[i]) %>%
-    dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                   fit_precip_slope +
-                                                   fit_snow_slope +
-                                                   fit_temp_slope +
-                                                   fit_pop_slope +
-                                                   fit_humid_slope +
-                                                   fit_lw_slope +
-                                                   #shore_dev +
-                                                   elevation +
-                                                   slope_100 +
-                                                   wshd_area,
+    dplyr::do(model = randomForest::randomForest(formula = area_slope ~
+                                                   humidity_slope +
+                                                   population_slope +
+                                                   temp_slope +
+                                                   snow_slope +
+                                                   precip_slope,
                                                  data = ., na.action=na.roughfix)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
@@ -520,21 +541,23 @@ for(i in 1:length(indexes)){
 hex_level_rf_temperate = do.call(rbind, hex_rf_temperate) %>%
   group_by(index) %>%
   slice(1) %>%
-  mutate(strong_NSE = ifelse(NSE>=0.25, "STRONG","WEAK"))%>%
+  mutate(strong_NSE = ifelse(NSE>=0, "STRONG","WEAK"))%>%
   right_join(grid, by = "index")%>%
+  filter(strong_NSE == "STRONG")%>%
   st_sf()
 
 temperate_change_predictors <-hex_level_rf_temperate %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
     predictor == "elevation" ~ "Elevation (m)",
     predictor == "slope_100" ~ "Near-shore slope",
     predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
     TRUE ~ NA_character_))%>%
   ggplot(.) +
   geom_sf(lwd = 0.4,
@@ -554,15 +577,16 @@ temperate_change_predictors <-hex_level_rf_temperate %>%
 
 temperate_bar <- hex_level_rf_temperate %>% select(predictor) %>% na.omit(.) %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
     predictor == "elevation" ~ "Elevation (m)",
     predictor == "slope_100" ~ "Near-shore slope",
     predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
     TRUE ~ NA_character_))%>%
   ggplot(., aes(x = predictor_new)) +
   geom_bar(aes(fill = predictor_new), color = "black") +
@@ -604,25 +628,25 @@ hex_tropical <- test %>%
   filter(biome_type %in% c("TROPICAL MOIST FOREST","TROPICAL DRY FOREST","TROPICAL GRASSLAND","MANGROVES",
                            "TROPICAL CONIFEROUS FOREST"))%>%
   st_drop_geometry() %>%
+  mutate(q95 = quantile(area_slope, 0.999), row = row_number()) %>%
+  filter(area_slope <= q95) %>%
+  mutate(q5 = quantile(area_slope, 0.001), row = row_number()) %>%
+  filter(area_slope >= q5) %>%
   group_by(index, hybas_id) %>%
-  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
-            depth_avg = mean(depth_avg, na.rm = TRUE),
-            res_time = mean(res_time, na.rm = TRUE),
-            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
-            elevation = mean(elevation, na.rm = TRUE),
-            slope_100 = mean(slope_100, na.rm = TRUE),
-            Lake.Area.Change = mean(Lake.Area.Change, na.rm = TRUE),
-            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
-            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
-            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
-            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
-            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
-            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
-            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
-            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
-            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE),
-            wshd_area = mean(wshd_area, na.rm = TRUE)) %>%
-  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
+  summarise(shore_dev = median(shore_dev, na.rm = TRUE),
+            depth_avg = median(depth_avg, na.rm = TRUE),
+            res_time = median(res_time, na.rm = TRUE),
+            p_val = median(sig_test, na.rm = TRUE),
+            elevation = median(elevation, na.rm = TRUE),
+            slope_100 = median(slope_100, na.rm = TRUE),
+            area_slope = median(area_slope, na.rm = TRUE),
+            precip_slope = median(precip_slope, na.rm = TRUE),
+            snow_slope = median(snow_slope, na.rm = TRUE),
+            temp_slope = median(temp_slope, na.rm = TRUE),
+            population_slope = median(population_slope, na.rm = TRUE),
+            humidity_slope = median(humidity_slope, na.rm = TRUE),
+            cloud_slope = median(cloud_slope, na.rm = TRUE)) %>%
+  mutate(sig_lake_change = ifelse(p_val<=0.05, "YES","NO"))%>%
   right_join(grid, by="index") %>%
   st_sf() %>%
   na.omit(.)
@@ -632,18 +656,13 @@ indexes <- unique(hex_tropical$index)
 
 for(i in 1:length(indexes)){
   b <- hex_tropical %>% filter(index == indexes[i]) %>%
-    dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                   fit_precip_slope +
-                                                   #fit_snow_slope +
-                                                   fit_temp_slope +
-                                                   fit_pop_slope +
-                                                   fit_humid_slope +
-                                                   fit_lw_slope +
-                                                   #shore_dev +
-                                                   elevation +
-                                                   slope_100 +
-                                                   wshd_area,
-                                                 data = ., na.action=na.roughfix)) %>%
+    dplyr::do(model = randomForest::randomForest(formula = area_slope ~
+                                                   humidity_slope +
+                                                   population_slope +
+                                                   temp_slope +
+                                                   snow_slope +
+                                                   precip_slope,
+                                                   data = ., na.action=na.roughfix)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
 
@@ -661,21 +680,23 @@ for(i in 1:length(indexes)){
 hex_level_rf_tropical = do.call(rbind, hex_rf_tropical) %>%
   group_by(index) %>%
   slice(1) %>%
-  mutate(strong_NSE = ifelse(NSE>=0.25, "STRONG","WEAK"))%>%
+  mutate(strong_NSE = ifelse(NSE>=0, "STRONG","WEAK"))%>%
   right_join(grid, by = "index")%>%
+  filter(strong_NSE == "STRONG")%>%
   st_sf()
 
 tropical_change_predictors <- hex_level_rf_tropical %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
     predictor == "elevation" ~ "Elevation (m)",
     predictor == "slope_100" ~ "Near-shore slope",
     predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
     TRUE ~ NA_character_))%>%
   ggplot(.) +
   geom_sf(lwd = 0.4,
@@ -695,15 +716,16 @@ tropical_change_predictors <- hex_level_rf_tropical %>%
 
 tropical_bar <- hex_level_rf_tropical %>% select(predictor) %>% na.omit(.) %>%
   mutate(predictor_new = case_when(
-    predictor == "fit_humid_slope" ~ "Δ Humidity",
-    predictor == "fit_lw_slope" ~ "Δ Longwave",
-    predictor == "fit_pop_slope" ~ "Δ Population",
-    predictor == "fit_precip_slope" ~ "Δ Precipitation",
-    predictor == "fit_snow_slope" ~ "Δ Snowfall",
-    predictor == "fit_temp_slope" ~ "Δ Temperature",
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
     predictor == "elevation" ~ "Elevation (m)",
     predictor == "slope_100" ~ "Near-shore slope",
     predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
     TRUE ~ NA_character_))%>%
   ggplot(., aes(x = predictor_new)) +
   geom_bar(aes(fill = predictor_new), color = "black") +
@@ -720,7 +742,30 @@ tropical_bar <- hex_level_rf_tropical %>% select(predictor) %>% na.omit(.) %>%
         line = element_line(color = "black"))+
   ylab("Hex Count")
 
+
+
+
+
 ### Big figure ###
+
+ecoregion_change_predictors <-
+  rbind(hex_level_rf_tropical, hex_level_rf_boreal, hex_level_rf_desert, hex_level_rf_temperate) %>%
+  mutate(predictor_new = case_when(
+    predictor == "humidity_slope" ~ "Δ Humidity",
+    predictor == "cloud_slope" ~ "Δ Cloud Cover",
+    predictor == "population_slope" ~ "Δ Population",
+    predictor == "precip_slope" ~ "Δ Precipitation",
+    predictor == "snow_slope" ~ "Δ Snowfall",
+    predictor == "temp_slope" ~ "Δ Temperature",
+    predictor == "elevation" ~ "Elevation (m)",
+    predictor == "slope_100" ~ "Near-shore slope",
+    predictor == "wshd_area" ~ "Watershed Area",
+    predictor == "shore_dev" ~ "Shoreline Complexity",
+    TRUE ~ NA_character_))
+
+
+
+
 
 p1 <- viewport(width = 0.12, height = 0.17, x = 0.36, y = 0.65)
 p2 <- viewport(width = 0.12, height = 0.17, x = 0.72, y = 0.42)
@@ -729,19 +774,24 @@ p4 <- viewport(width = 0.12, height = 0.17, x = 0.11, y = 0.53)
 
 #Just draw the plot twice
 
-png(filename = "./output/figures/HEX_level_predictors.png",
+png(filename = "./output/figures/HEX_level_ecoregion_predictors_STRONGNSE.png",
     width     = 10.41,
     height    = 7.29,
     units     = "in",
     res       = 1000,
     pointsize = 12,
     bg = "white")
-print(lake_change_predictors)
-# print(temperate_bar, vp = p1)
-# print(desert_bar, vp = p2)
-# print(tropical_bar, vp = p3)
-# print(boreal_bar, vp = p4)
+print(lake_change_predictors_plot)
+print(temperate_bar, vp = p1)
+print(desert_bar, vp = p2)
+print(tropical_bar, vp = p3)
+print(boreal_bar, vp = p4)
 dev.off()
+
+
+
+
+
 
 
 

@@ -39,7 +39,7 @@ slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
 world <-  ne_download(scale = 110, type = 'land', category = 'physical', returnclass = "sf") %>%
   st_transform("+proj=eqearth +wktext")
 
-grid_spacing <- 333000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
+grid_spacing <- 111000 # CRS units in meters (100000 m = 111 km & 111 km ~ 1 Decimal degree)
 
 grid <- st_make_grid(
   world,
@@ -63,25 +63,26 @@ test <- test %>% filter(dist == 0) %>% arrange(hylak_id)
 
 area_hexes_avg <- test %>%
   st_drop_geometry() %>%
+  mutate(q95 = quantile(area_slope, 0.999), row = row_number()) %>%
+  filter(area_slope <= q95) %>%
+  mutate(q5 = quantile(area_slope, 0.001), row = row_number()) %>%
+  filter(area_slope >= q5) %>%
   group_by(index, hybas_id) %>%
-  summarise(shore_dev = mean(shore_dev, na.rm = TRUE),
-            depth_avg = mean(depth_avg, na.rm = TRUE),
-            res_time = mean(res_time, na.rm = TRUE),
-            mk_total_p_val = median(mk_total_p_val, na.rm = TRUE),
-            elevation = mean(elevation, na.rm = TRUE),
-            slope_100 = mean(slope_100, na.rm = TRUE),
-            Lake.Area.Change = mean(Lake.Area.Change, na.rm = TRUE),
-            rsq_trends = mean(fit_total_rsq, na.rm = TRUE),
-            fit_precip_slope = mean(fit_precip_slope, na.rm = TRUE),
-            fit_snow_slope = mean(fit_snow_slope, na.rm = TRUE),
-            fit_temp_slope = mean(fit_temp_slope, na.rm = TRUE),
-            fit_pop_slope = mean(fit_pop_slope, na.rm = TRUE),
-            fit_humid_slope = mean(fit_humid_slope, na.rm = TRUE),
-            fit_cloud_slope = mean(fit_cloud_slope, na.rm = TRUE),
-            fit_sw_slope = mean(fit_sw_slope, na.rm = TRUE),
-            fit_lw_slope = mean(fit_lw_slope, na.rm = TRUE),
-            wshd_area = mean(wshd_area, na.rm = TRUE)) %>%
-  mutate(sig_lake_change = ifelse(mk_total_p_val<=0.05, "YES","NO"))%>%
+  summarise(shore_dev = median(shore_dev, na.rm = TRUE),
+            depth_avg = median(depth_avg, na.rm = TRUE),
+            res_time = median(res_time, na.rm = TRUE),
+            p_val = median(sig_test, na.rm = TRUE),
+            elevation = median(elevation, na.rm = TRUE),
+            slope_100 = median(slope_100, na.rm = TRUE),
+            var_change_slope = var(area_slope, na.rm = TRUE),
+            area_slope = median(area_slope, na.rm = TRUE),
+            precip_slope = median(precip_slope, na.rm = TRUE),
+            snow_slope = median(snow_slope, na.rm = TRUE),
+            temp_slope = median(temp_slope, na.rm = TRUE),
+            population_slope = median(population_slope, na.rm = TRUE),
+            humidity_slope = median(humidity_slope, na.rm = TRUE),
+            cloud_slope = median(cloud_slope, na.rm = TRUE)) %>%
+  mutate(sig_lake_change = ifelse(p_val<=0.05, "YES","NO"))%>%
   right_join(grid, by="index") %>%
   st_sf() %>%
   na.omit(.)

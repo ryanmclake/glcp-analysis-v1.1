@@ -14,15 +14,10 @@ EcoregionMask <- st_make_valid(EcoregionMask)
 EcoregionMask_hex <- st_make_valid(EcoregionMask)%>%
   st_transform("+proj=eqearth +wktext")
 
-slope_data <- readRDS("./output/slopes/hylak_id_slopes.rds") %>%
-  filter(sig_lake_change == "YES") %>%
-  filter(lake_type == 1) %>%
-  rename(`Lake Area Change` = fit_total_slope) %>%
-  st_as_sf(coords = c("pour_long", "pour_lat"), crs = 4326) %>%
-  st_transform("+proj=eqearth +wktext")
 
-test <- slope_data %>%
-  cbind(EcoregionMask_hex[st_nearest_feature(slope_data, EcoregionMask_hex),]) %>%
+
+test <- slope_data_analysis %>%
+  cbind(EcoregionMask_hex[st_nearest_feature(slope_data_analysis, EcoregionMask_hex),]) %>%
   mutate(dist = st_distance(geometry, geometry.1, by_element = T))
 
 rf_boreal <- test %>%
@@ -47,18 +42,18 @@ rf_boreal <- test %>%
   st_transform("+proj=eqearth +wktext") %>%
   filter(biome_type %in% c("BOREAL FOREST","ROCK & ICE","TUNDRA")) %>%
   st_drop_geometry() %>%
-  dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                   fit_precip_slope +
-                                                   fit_snow_slope +
-                                                   fit_temp_slope +
-                                                   fit_pop_slope +
-                                                   fit_humid_slope +
-                                                   fit_lw_slope +
-                                                   #shore_dev +
-                                                   elevation +
-                                                   slope_100 +
-                                                   wshd_area,
-                                                 data = ., na.action=na.roughfix,
+  dplyr::do(model = randomForest::randomForest(formula = area_slope ~
+                                                 cloud_slope +
+                                                 humidity_slope +
+                                                 population_slope +
+                                                 temp_slope +
+                                                 snow_slope +
+                                                 precip_slope +
+                                                 wshd_area +
+                                                 slope_100 +
+                                                 elevation +
+                                                 shore_dev,
+                                               data = ., na.action=na.roughfix,
                                                importance = T)) %>%
     dplyr::collect() %>%
     dplyr::ungroup(.)
@@ -120,17 +115,17 @@ rf_desert <- test %>%
   st_transform("+proj=eqearth +wktext") %>%
   filter(biome_type == "DESERT")%>%
   st_drop_geometry() %>%
-  dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                 fit_precip_slope +
-                                                 fit_snow_slope +
-                                                 fit_temp_slope +
-                                                 fit_pop_slope +
-                                                 fit_humid_slope +
-                                                 fit_lw_slope +
-                                                 #shore_dev +
-                                                 elevation +
+  dplyr::do(model = randomForest::randomForest(formula = area_slope ~
+                                                 cloud_slope +
+                                                 humidity_slope +
+                                                 population_slope +
+                                                 temp_slope +
+                                                 snow_slope +
+                                                 precip_slope +
+                                                 wshd_area +
                                                  slope_100 +
-                                                 wshd_area,
+                                                 elevation +
+                                                 shore_dev,
                                                data = ., na.action=na.roughfix)) %>%
   dplyr::collect() %>%
   dplyr::ungroup(.)
@@ -171,7 +166,7 @@ desert_rf_figure <- ggplot(rf_desert_df, aes(y = incMSE, x = NA, group = predict
 
 
 
-rf_tropical <- test %>%
+rf_temperate <- test %>%
   mutate(biome_type = case_when(
     BIOME == 1 ~ "TROPICAL MOIST FOREST",
     BIOME == 2 ~ "TROPICAL DRY FOREST",
@@ -194,17 +189,17 @@ rf_tropical <- test %>%
   filter(biome_type %in% c("TEMPERATE GRASSLAND","TEMPERATE CONIFEROUS FOREST","MEDITERRANIAN FOREST","FLOODED GRASSLAND",
                            "MONTANE GRASSLAND","LAKE","TEMPERATE BROADLEAF FOREST"))%>%
   st_drop_geometry() %>%
-  dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                 fit_precip_slope +
-                                                 fit_snow_slope +
-                                                 fit_temp_slope +
-                                                 fit_pop_slope +
-                                                 fit_humid_slope +
-                                                 fit_lw_slope +
-                                                 #shore_dev +
-                                                 elevation +
+  dplyr::do(model = randomForest::randomForest(formula = area_slope ~
+                                                 cloud_slope +
+                                                 humidity_slope +
+                                                 population_slope +
+                                                 temp_slope +
+                                                 snow_slope +
+                                                 precip_slope +
+                                                 wshd_area +
                                                  slope_100 +
-                                                 wshd_area,
+                                                 elevation +
+                                                 shore_dev,
                                                data = ., na.action=na.roughfix)) %>%
   dplyr::collect() %>%
   dplyr::ungroup(.)
@@ -265,17 +260,17 @@ rf_tropical <- test %>%
   filter(biome_type %in% c("TROPICAL MOIST FOREST","TROPICAL DRY FOREST","TROPICAL GRASSLAND","MANGROVES",
                            "TROPICAL CONIFEROUS FOREST")) %>%
   st_drop_geometry() %>%
-  dplyr::do(model = randomForest::randomForest(formula = Lake.Area.Change ~
-                                                 fit_precip_slope +
-                                                 fit_snow_slope +
-                                                 fit_temp_slope +
-                                                 fit_pop_slope +
-                                                 fit_humid_slope +
-                                                 fit_lw_slope +
-                                                 #shore_dev +
-                                                 elevation +
+  dplyr::do(model = randomForest::randomForest(formula = area_slope ~
+                                                 cloud_slope +
+                                                 humidity_slope +
+                                                 population_slope +
+                                                 temp_slope +
+                                                 snow_slope +
+                                                 precip_slope +
+                                                 wshd_area +
                                                  slope_100 +
-                                                 wshd_area,
+                                                 elevation +
+                                                 shore_dev,
                                                data = ., na.action=na.roughfix)) %>%
   dplyr::collect() %>%
   dplyr::ungroup(.)

@@ -12,14 +12,15 @@ slope <- function(x, y){
 library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 library(doParallel, warn.conflicts = FALSE)
+library(Kendall)
 
-country <- list.files(path = "/data/countries")
+country <- list.files(path = "./output/slopes/countries")
 country <- gsub("\\..*", "", country)
 
 analysis_function <- function(x){
 
-system.time(read_csv_arrow(
-  paste0("/data/countries/",x,".csv"),
+system.time(d1 <- read_csv_arrow(
+  paste0("./output/slopes/countries/",country[1],".csv"),
   quote = "\"",
   escape_double = TRUE,
   escape_backslash = FALSE,
@@ -97,15 +98,14 @@ system.time(read_csv_arrow(
                         mean_sw_wm2 = mean(mean_sw_wm2, na.rm = T),
                         mean_lw_wm2 = mean(mean_lw_wm2, na.rm = T),
                         snow_km2 = mean(snow_km2, na.rm = T)) %>%
-              ungroup(.) %>%
-              mutate_at(vars(pop_sum),funs(imputeTS::na_interpolation(., option = "linear"))) %>%
-              mutate(across(c(13:21), ~ if_else(is.na(.),0,.))) %>%
-              mutate(across(c(13:21), ~ scale(.))) %>%
-              mutate(across(c(13:21), ~ if_else(is.nan(.),0,.))) %>%
+              ungroup(.)%>%
+              group_by(hylak_id) %>%
               arrange(hylak_id) %>%
-              group_by(hylak_id, hybas_id, centr_lon, centr_lat, lake_type,
-                       shore_dev, depth_avg, res_time,
-                       elevation, slope_100, wshd_area) %>%
+              mutate_at(vars(pop_sum),funs(imputeTS::na_interpolation(., option = "linear"))) %>%
+              filter(year >= "2000") %>%
+              mutate(across(c(12:20), ~ if_else(is.nan(.),0,.))) %>%
+              mutate(across(c(12:20), ~ scale(.))) %>%
+              mutate(across(c(12:20), ~ if_else(is.nan(.),0,.))) %>%
               mutate(area_slope = slope(year,total_km2),
                      precip_slope = slope(year,total_precip_mm),
                      snow_slope = slope(year,snow_km2),
@@ -118,14 +118,14 @@ system.time(read_csv_arrow(
                      -mean_spec_humidity,-mean_totcloud_pct,-year,-mean_lw_wm2,-mean_sw_wm2)%>%
               summarize_all(funs(mean)) %>%
               mutate(sig_lake_change = ifelse(mk_p_val<=0.05, "YES","NO")) %>%
-              write.table(., file = paste0("/output/hylak_id_slopes2.csv"),
+              write.table(., file = paste0("./output/hylak_id_slopes5.csv"),
                           append = T,
                           row.names = F,
-                          col.names = !file.exists("/output/hylak_id_slopes2.csv")))
+                          col.names = !file.exists("./output/hylak_id_slopes5.csv")))
 }
 
 
-no_cores <- detectCores()
+no_cores <- detectCores()-1
 cl <- makeCluster(no_cores, type="FORK")
 registerDoParallel(cl)
 foreach(i=country) %dopar% analysis_function(i)

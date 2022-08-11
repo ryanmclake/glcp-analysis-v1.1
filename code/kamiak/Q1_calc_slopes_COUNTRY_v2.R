@@ -14,13 +14,13 @@ library(dplyr, warn.conflicts = FALSE)
 library(doParallel, warn.conflicts = FALSE)
 library(broom, warn.conflicts = FALSE)
 
-country <- list.files(path = "/data/countries")
+country <- list.files(path = "./output/slopes/countries")
 country <- gsub("\\..*", "", country)
 
 analysis_function <- function(x){
 
   system.time(read_csv_arrow(
-    paste0("/data/countries/",x,".csv"),
+    paste0("./output/slopes/countries/",country[1],".csv"),
     quote = "\"",
     escape_double = TRUE,
     escape_backslash = FALSE,
@@ -98,19 +98,21 @@ analysis_function <- function(x){
                 mean_sw_wm2 = mean(mean_sw_wm2, na.rm = T),
                 mean_lw_wm2 = mean(mean_lw_wm2, na.rm = T),
                 snow_km2 = mean(snow_km2, na.rm = T)) %>%
-      ungroup(.) %>%
-      mutate_at(vars(pop_sum),funs(imputeTS::na_interpolation(., option = "linear"))) %>%
-      filter(year > "2000") %>%
-      mutate(across(c(13:21), ~ if_else(is.na(.),0,.))) %>%
-      mutate(across(c(13:21), ~ scale(.))) %>%
-      mutate(across(c(13:21), ~ if_else(is.nan(.),0,.))) %>%
+      ungroup(.)%>%
+      group_by(hylak_id) %>%
       arrange(hylak_id) %>%
+      mutate_at(vars(pop_sum),funs(imputeTS::na_interpolation(., option = "linear"))) %>%
+      filter(year >= "2000") %>%
+      mutate(across(c(12:20), ~ if_else(is.nan(.),0,.))) %>%
+      mutate(across(c(12:20), ~ scale(.))) %>%
+      mutate(across(c(12:20), ~ if_else(is.nan(.),0,.))) %>%
       mutate(precip_slope = slope(year,total_precip_mm),
              snow_slope = slope(year,snow_km2),
              temp_slope = slope(year,mean_temp_k),
              population_slope = slope(year,pop_sum),
              humidity_slope = slope(year,mean_spec_humidity),
              cloud_slope = slope(year,mean_totcloud_pct)) %>%
+      ungroup(.) %>%
       group_by(hylak_id, hybas_id, centr_lon, centr_lat, lake_type,
                shore_dev, depth_avg, res_time,
                elevation, slope_100, wshd_area, precip_slope, snow_slope,
@@ -123,10 +125,10 @@ analysis_function <- function(x){
              temp_slope, population_slope, humidity_slope, cloud_slope,
              area_slope = estimate, sig_test = p.value) %>%
       mutate(sig_lake_change = ifelse(sig_test<=0.05, "YES","NO")) %>%
-      write.table(., file = paste0("/output/hylak_id_slopes3.csv"),
+      write.table(., file = paste0("./output/hylak_id_slopes5.csv"),
                   append = T,
                   row.names = F,
-                  col.names = !file.exists("/output/hylak_id_slopes3.csv")))
+                  col.names = !file.exists("./output/hylak_id_slopes5.csv")))
 }
 
 
